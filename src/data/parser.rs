@@ -1,6 +1,6 @@
 use crate::data::types::{DataFrame, Series, DataFormat};
 use anyhow::{Result, anyhow};
-use std::io::{Read, BufRead, BufReader};
+use std::io::Read;
 use csv::{ReaderBuilder, StringRecord};
 
 pub struct FastParser {

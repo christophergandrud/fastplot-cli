@@ -1,4 +1,4 @@
-use crate::data::{PlotConfig, DataFormat};
+use crate::data::PlotConfig;
 use crate::cli::Args;
 
 impl From<&Args> for PlotConfig {

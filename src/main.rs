@@ -3,7 +3,6 @@ mod data;
 mod plot;
 mod config;
 mod testing;
-mod performance;
 
 use anyhow::Result;
 use clap::Parser;
