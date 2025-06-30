@@ -3,6 +3,46 @@ use anyhow::{Result, anyhow};
 use std::io::Read;
 use csv::{ReaderBuilder, StringRecord};
 
+fn detect_likely_delimiters(field: &str, current_delimiter: char) -> Vec<char> {
+    let common_delimiters = [',', '\t', ' ', ';', '|'];
+    let mut detected = Vec::new();
+    
+    for &delim in &common_delimiters {
+        if delim != current_delimiter && field.contains(delim) {
+            detected.push(delim);
+        }
+    }
+    detected
+}
+
+fn suggest_delimiter_fix(field: &str, current_delimiter: char) -> String {
+    let detected = detect_likely_delimiters(field, current_delimiter);
+    let mut suggestions = Vec::new();
+    
+    for &delim in &detected {
+        let delim_name = match delim {
+            ',' => "comma",
+            '\t' => "tab", 
+            ' ' => "space",
+            ';' => "semicolon",
+            '|' => "pipe",
+            _ => "delimiter",
+        };
+        let flag = match delim {
+            '\t' => "-d\\t".to_string(),
+            ' ' => "-d' '".to_string(),
+            _ => format!("-d{}", delim),
+        };
+        suggestions.push(format!("Try {} delimiter with {}", delim_name, flag));
+    }
+    
+    if suggestions.is_empty() {
+        "Check your data format and delimiter setting.".to_string()
+    } else {
+        suggestions.join(" or ")
+    }
+}
+
 #[allow(dead_code)]
 pub struct FastParser {
     delimiter: u8,
@@ -55,7 +95,11 @@ impl FastParser {
 
             for (col_idx, field) in record.iter().enumerate() {
                 let value = field.trim().parse::<f64>()
-                    .map_err(|_| anyhow!("Failed to parse '{}' as number", field))?;
+                    .map_err(|_| {
+                        let delimiter_char = self.delimiter as char;
+                        let suggestions = suggest_delimiter_fix(field, delimiter_char);
+                        anyhow!("Failed to parse '{}' as number. {}", field, suggestions)
+                    })?;
                 columns[col_idx].push(value);
             }
         }
@@ -75,6 +119,33 @@ impl FastParser {
 
     pub fn parse_string(&self, data: &str) -> Result<DataFrame> {
         self.parse_stream(data.as_bytes())
+    }
+
+    pub fn parse_string_with_auto_detect(&self, data: &str) -> Result<DataFrame> {
+        match self.parse_string(data) {
+            Ok(df) => Ok(df),
+            Err(original_error) => {
+                let first_line = data.lines().next().unwrap_or("");
+                let detected_delimiters = detect_likely_delimiters(first_line, self.delimiter as char);
+                
+                for &delim in &detected_delimiters {
+                    let auto_parser = FastParser::new(delim, self.has_header);
+                    if let Ok(df) = auto_parser.parse_string(data) {
+                        eprintln!("Auto-detected {} delimiter", match delim {
+                            ',' => "comma",
+                            '\t' => "tab",
+                            ' ' => "space", 
+                            ';' => "semicolon",
+                            '|' => "pipe",
+                            _ => "unknown",
+                        });
+                        return Ok(df);
+                    }
+                }
+                
+                Err(original_error)
+            }
+        }
     }
 
     pub fn parse_with_format<R: Read>(&self, reader: R, format: DataFormat) -> Result<DataFrame> {

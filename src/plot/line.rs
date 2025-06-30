@@ -92,8 +92,8 @@ impl LinePlot {
                 let next_x_pos = (next_x_ratio * (chart_width - 1) as f64) as usize;
                 let next_y_pos = chart_height - 1 - ((next_y_ratio * (chart_height - 1) as f64) as usize);
                 
-                // Simple line drawing between points
-                self.draw_line_on_grid(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos, '·');
+                // Smooth line drawing between points with better characters
+                self.draw_smooth_line(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos);
             }
         }
         
@@ -119,49 +119,71 @@ impl LinePlot {
             output.push('\n');
         }
         
-        // X-axis
+        // X-axis with properly aligned tick marks
         output.push_str("     └");
-        for _ in 0..chart_width {
-            output.push('─');
+        for i in 0..chart_width {
+            if i > 0 && (i * 4) % chart_width == 0 {
+                output.push('┬');
+            } else {
+                output.push('─');
+            }
         }
         output.push('\n');
+        
+        // X-axis labels properly spaced
+        if chart_width > 20 {
+            output.push_str("      ");
+            let num_labels = 5;
+            for i in 0..num_labels {
+                let x_index = if data.len() > 1 { 
+                    i * (data.len() - 1) / (num_labels - 1)
+                } else { 
+                    0 
+                };
+                let spacing = chart_width / (num_labels - 1);
+                if i == 0 {
+                    output.push_str(&format!("{}", x_index));
+                } else {
+                    output.push_str(&format!("{:>width$}", x_index, width = spacing));
+                }
+            }
+            output.push('\n');
+        }
 
         Ok(output)
     }
 
 
-    fn draw_line_on_grid(&self, grid: &mut Vec<Vec<char>>, x1: usize, y1: usize, x2: usize, y2: usize, symbol: char) {
-        // Simple line drawing using Bresenham's algorithm
-        let dx = (x2 as i32 - x1 as i32).abs();
-        let dy = (y2 as i32 - y1 as i32).abs();
-        let sx = if x1 < x2 { 1 } else { -1 };
-        let sy = if y1 < y2 { 1 } else { -1 };
-        let mut err = dx - dy;
+
+    fn draw_smooth_line(&self, grid: &mut Vec<Vec<char>>, x1: usize, y1: usize, x2: usize, y2: usize) {
+        // Use fine-grained interpolation to avoid staircase effect
+        let x1_f = x1 as f64;
+        let y1_f = y1 as f64;
+        let x2_f = x2 as f64;
+        let y2_f = y2 as f64;
         
-        let mut x = x1 as i32;
-        let mut y = y1 as i32;
+        // Use many more steps for truly smooth lines
+        let dx = (x2_f - x1_f).abs();
+        let dy = (y2_f - y1_f).abs();
+        let steps = ((dx + dy) * 4.0).max(10.0) as usize; // Much finer granularity
         
-        loop {
-            if x >= 0 && x < grid[0].len() as i32 && y >= 0 && y < grid.len() as i32 {
-                let ux = x as usize;
-                let uy = y as usize;
+        if steps == 0 {
+            return;
+        }
+        
+        for i in 1..steps {
+            let t = i as f64 / steps as f64;
+            let x = x1_f + t * (x2_f - x1_f);
+            let y = y1_f + t * (y2_f - y1_f);
+            
+            let ux = x.round() as usize;
+            let uy = y.round() as usize;
+            
+            if ux < grid[0].len() && uy < grid.len() {
                 if grid[uy][ux] == ' ' {  // Don't overwrite data points
-                    grid[uy][ux] = symbol;
+                    // Use very light character for subtle connection
+                    grid[uy][ux] = '∙';  // Even lighter than ·
                 }
-            }
-            
-            if x == x2 as i32 && y == y2 as i32 {
-                break;
-            }
-            
-            let e2 = 2 * err;
-            if e2 > -dy {
-                err -= dy;
-                x += sx;
-            }
-            if e2 < dx {
-                err += dx;
-                y += sy;
             }
         }
     }

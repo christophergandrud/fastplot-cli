@@ -68,7 +68,8 @@ fn read_input_data(options: &cli::PlotOptions) -> Result<String> {
 }
 
 fn parse_input_data(data: &str, options: &cli::PlotOptions) -> Result<data::DataFrame> {
-    data::parser::parse_csv_data(data, options.delimiter, options.has_header)
+    let parser = data::parser::FastParser::new(options.delimiter, options.has_header);
+    parser.parse_string_with_auto_detect(data)
 }
 
 fn create_plot_config(options: &cli::PlotOptions) -> PlotConfig {
