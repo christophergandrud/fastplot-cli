@@ -93,7 +93,13 @@ impl LinePlot {
                 let next_y_pos = chart_height - 1 - ((next_y_ratio * (chart_height - 1) as f64) as usize);
                 
                 // Smooth line drawing between points with better characters
-                self.draw_smooth_line(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos);
+                if config.width > 100 {
+                    // Use high-resolution Braille for wide plots
+                    self.draw_braille_line(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos);
+                } else {
+                    // Use standard smooth line for smaller plots
+                    self.draw_smooth_line(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos);
+                }
             }
         }
         
@@ -130,23 +136,11 @@ impl LinePlot {
         }
         output.push('\n');
         
-        // X-axis labels properly spaced
+        // X-axis labels with proper positioning and overlap prevention
         if chart_width > 20 {
+            let x_labels = self.create_axis_labels(data.len(), chart_width);
             output.push_str("      ");
-            let num_labels = 5;
-            for i in 0..num_labels {
-                let x_index = if data.len() > 1 { 
-                    i * (data.len() - 1) / (num_labels - 1)
-                } else { 
-                    0 
-                };
-                let spacing = chart_width / (num_labels - 1);
-                if i == 0 {
-                    output.push_str(&format!("{}", x_index));
-                } else {
-                    output.push_str(&format!("{:>width$}", x_index, width = spacing));
-                }
-            }
+            output.push_str(&x_labels);
             output.push('\n');
         }
 
@@ -154,6 +148,115 @@ impl LinePlot {
     }
 
 
+
+    fn create_axis_labels(&self, data_len: usize, chart_width: usize) -> String {
+        let mut axis_line = vec![' '; chart_width];
+        let num_labels = 5.min(data_len);
+        
+        if num_labels == 0 {
+            return axis_line.into_iter().collect();
+        }
+        
+        // Calculate label positions and values
+        let mut labels = Vec::new();
+        for i in 0..num_labels {
+            let x_index = if data_len > 1 { 
+                i * (data_len - 1) / (num_labels - 1)
+            } else { 
+                0 
+            };
+            let normalized = if num_labels > 1 {
+                i as f64 / (num_labels - 1) as f64
+            } else {
+                0.5
+            };
+            let position = (normalized * (chart_width - 1) as f64).round() as usize;
+            labels.push((x_index.to_string(), position));
+        }
+        
+        // Place labels with overlap prevention
+        for (label, pos) in labels {
+            let label_start = pos.saturating_sub(label.len() / 2);
+            let label_end = (label_start + label.len()).min(chart_width);
+            
+            // Check if there's enough space for the label
+            let mut can_place = true;
+            for i in label_start..label_end {
+                if axis_line[i] != ' ' {
+                    can_place = false;
+                    break;
+                }
+            }
+            
+            // Place the label if there's space
+            if can_place {
+                for (i, ch) in label.chars().enumerate() {
+                    if label_start + i < chart_width {
+                        axis_line[label_start + i] = ch;
+                    }
+                }
+            }
+        }
+        
+        axis_line.into_iter().collect()
+    }
+
+    fn draw_braille_line(&self, grid: &mut Vec<Vec<char>>, x1: usize, y1: usize, x2: usize, y2: usize) {
+        // Use Braille patterns for sub-character precision
+        let x1_f = x1 as f64;
+        let y1_f = y1 as f64;
+        let x2_f = x2 as f64;
+        let y2_f = y2 as f64;
+        
+        let dx = x2_f - x1_f;
+        let dy = y2_f - y1_f;
+        let steps = ((dx.abs() + dy.abs()) * 8.0).max(20.0) as usize; // Very fine resolution
+        
+        if steps == 0 {
+            return;
+        }
+        
+        for i in 1..steps {
+            let t = i as f64 / steps as f64;
+            let x = x1_f + t * dx;
+            let y = y1_f + t * dy;
+            
+            let base_x = x.floor() as usize;
+            let base_y = y.floor() as usize;
+            let frac_x = x.fract();
+            let frac_y = y.fract();
+            
+            if base_x < grid[0].len() && base_y < grid.len() {
+                if grid[base_y][base_x] == ' ' {
+                    // Use Braille dots for sub-character positioning
+                    grid[base_y][base_x] = self.get_braille_char(frac_x, frac_y);
+                }
+            }
+        }
+    }
+
+    fn get_braille_char(&self, x_fraction: f64, y_fraction: f64) -> char {
+        // Braille Unicode patterns for sub-character resolution
+        // Each character represents a 2x4 grid of dots
+        const BRAILLE_BASE: u32 = 0x2800;
+        
+        let x_idx = if x_fraction < 0.5 { 0 } else { 1 };
+        let y_idx = (y_fraction * 4.0).min(3.9) as usize;
+        
+        let dot_pattern = match (x_idx, y_idx) {
+            (0, 0) => 0x01, // ⠁
+            (0, 1) => 0x02, // ⠂
+            (0, 2) => 0x04, // ⠄
+            (0, 3) => 0x40, // ⡀
+            (1, 0) => 0x08, // ⠈
+            (1, 1) => 0x10, // ⠐
+            (1, 2) => 0x20, // ⠠
+            (1, 3) => 0x80, // ⢀
+            _ => 0x01,
+        };
+        
+        char::from_u32(BRAILLE_BASE + dot_pattern).unwrap_or('∙')
+    }
 
     fn draw_smooth_line(&self, grid: &mut Vec<Vec<char>>, x1: usize, y1: usize, x2: usize, y2: usize) {
         // Use fine-grained interpolation to avoid staircase effect
