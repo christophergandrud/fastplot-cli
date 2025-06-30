@@ -1,7 +1,6 @@
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
 use anyhow::{Result, anyhow};
-use crossterm::style::Color;
+use crossterm::style::{Stylize, Color};
 
 pub struct LinePlot {
     multi_series: bool,
@@ -25,155 +24,189 @@ impl LinePlot {
             return Err(anyhow!("No data provided for line plot"));
         }
 
-        let mut canvas = Canvas::with_labels(
-            config.width,
-            config.height,
-            config.title.clone(),
-            config.xlabel.clone(),
-            config.ylabel.clone(),
-        );
-
         if self.multi_series {
-            self.render_multi_series(&mut canvas, data, config)?;
+            self.render_multi_series_ascii(data, config)
         } else {
-            self.render_single_series(&mut canvas, &data.columns[0], config)?;
+            self.render_single_series_ascii(&data.columns[0], config)
         }
-
-        Ok(canvas.render_colored(config.color.is_some()))
     }
 
-    fn render_single_series(&self, canvas: &mut Canvas, series: &crate::data::Series, config: &PlotConfig) -> Result<()> {
+    fn render_single_series_ascii(&self, series: &crate::data::Series, config: &PlotConfig) -> Result<String> {
         let data = &series.data;
         if data.is_empty() {
             return Err(anyhow!("Empty data series"));
         }
 
+        let symbol = config.symbol.unwrap_or('●');
+        
+        // Find min and max values for scaling
         let min_val = data.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let max_val = data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         
-        // Handle edge case where all values are the same
-        let (y_min, y_max) = if (max_val - min_val).abs() < f64::EPSILON {
-            (min_val - 1.0, max_val + 1.0)
-        } else {
-            // Add small padding
-            let padding = (max_val - min_val) * 0.05;
-            (min_val - padding, max_val + padding)
-        };
+        if (max_val - min_val).abs() < f64::EPSILON {
+            return Ok(format!("{}\n\nAll values are the same: {}", 
+                config.title.as_deref().unwrap_or(""), max_val));
+        }
 
-        canvas.set_ranges((0.0, (data.len() - 1) as f64), (y_min, y_max));
-        canvas.draw_axis();
+        // Calculate chart dimensions
+        let chart_height = config.height.saturating_sub(5);
+        let chart_width = config.width.saturating_sub(10);
+        
+        // Add some padding to the Y range
+        let y_range = max_val - min_val;
+        let padding = y_range * 0.1;
+        let y_min = min_val - padding;
+        let y_max = max_val + padding;
+        let y_range_padded = y_max - y_min;
+        
+        let mut output = String::new();
+        
+        // Add title
+        if let Some(title) = &config.title {
+            output.push_str(&format!("{:^width$}\n\n", title, width = config.width));
+        }
 
-        let color = self.parse_color(&config.color);
-        let symbol = config.symbol.unwrap_or('●');
-
-        // Plot points
+        // Create a 2D grid to place points and lines
+        let mut grid = vec![vec![' '; chart_width]; chart_height];
+        
+        // Plot data points and connect with lines
         for (i, &value) in data.iter().enumerate() {
-            let x = i as f64;
-            canvas.plot_point_with_color(x, value, symbol, color);
-        }
-
-        // Connect points with lines
-        for i in 0..data.len() - 1 {
-            let x1 = i as f64;
-            let y1 = data[i];
-            let x2 = (i + 1) as f64;
-            let y2 = data[i + 1];
+            // Calculate position on grid
+            let x_ratio = if data.len() > 1 { i as f64 / (data.len() - 1) as f64 } else { 0.5 };
+            let y_ratio = (value - y_min) / y_range_padded;
             
-            canvas.plot_line_with_color(x1, y1, x2, y2, '·', color);
+            let x_pos = (x_ratio * (chart_width - 1) as f64) as usize;
+            let y_pos = chart_height - 1 - ((y_ratio * (chart_height - 1) as f64) as usize);
+            
+            // Place the point
+            if x_pos < chart_width && y_pos < chart_height {
+                grid[y_pos][x_pos] = symbol;
+            }
+            
+            // Draw line to next point
+            if i < data.len() - 1 {
+                let next_value = data[i + 1];
+                let next_x_ratio = (i + 1) as f64 / (data.len() - 1) as f64;
+                let next_y_ratio = (next_value - y_min) / y_range_padded;
+                
+                let next_x_pos = (next_x_ratio * (chart_width - 1) as f64) as usize;
+                let next_y_pos = chart_height - 1 - ((next_y_ratio * (chart_height - 1) as f64) as usize);
+                
+                // Simple line drawing between points
+                self.draw_line_on_grid(&mut grid, x_pos, y_pos, next_x_pos, next_y_pos, '·');
+            }
         }
+        
+        // Render the grid with Y-axis labels
+        for (row_idx, row) in grid.iter().enumerate() {
+            let y_value = y_max - (row_idx as f64 / (chart_height - 1) as f64) * y_range_padded;
+            let is_label_row = row_idx % 3 == 0; // Show labels every 3 rows
+            
+            if is_label_row {
+                output.push_str(&format!("{:>6.1} ┤", y_value));
+            } else {
+                output.push_str("       ┤");
+            }
+            
+            // Add the row content with color support
+            let row_str: String = row.iter().collect();
+            if let Some(color_name) = &config.color {
+                let colored_str = self.apply_color(&row_str, color_name);
+                output.push_str(&colored_str);
+            } else {
+                output.push_str(&row_str);
+            }
+            output.push('\n');
+        }
+        
+        // X-axis
+        output.push_str("     └");
+        for _ in 0..chart_width {
+            output.push('─');
+        }
+        output.push('\n');
 
-        Ok(())
+        Ok(output)
     }
 
-    fn render_multi_series(&self, canvas: &mut Canvas, data: &DataFrame, _config: &PlotConfig) -> Result<()> {
+
+    fn draw_line_on_grid(&self, grid: &mut Vec<Vec<char>>, x1: usize, y1: usize, x2: usize, y2: usize, symbol: char) {
+        // Simple line drawing using Bresenham's algorithm
+        let dx = (x2 as i32 - x1 as i32).abs();
+        let dy = (y2 as i32 - y1 as i32).abs();
+        let sx = if x1 < x2 { 1 } else { -1 };
+        let sy = if y1 < y2 { 1 } else { -1 };
+        let mut err = dx - dy;
+        
+        let mut x = x1 as i32;
+        let mut y = y1 as i32;
+        
+        loop {
+            if x >= 0 && x < grid[0].len() as i32 && y >= 0 && y < grid.len() as i32 {
+                let ux = x as usize;
+                let uy = y as usize;
+                if grid[uy][ux] == ' ' {  // Don't overwrite data points
+                    grid[uy][ux] = symbol;
+                }
+            }
+            
+            if x == x2 as i32 && y == y2 as i32 {
+                break;
+            }
+            
+            let e2 = 2 * err;
+            if e2 > -dy {
+                err -= dy;
+                x += sx;
+            }
+            if e2 < dx {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    fn render_multi_series_ascii(&self, data: &DataFrame, config: &PlotConfig) -> Result<String> {
+        // For now, just render the first series. Multi-series can be enhanced later
         if data.columns.is_empty() {
             return Err(anyhow!("No data series provided"));
         }
+        self.render_single_series_ascii(&data.columns[0], config)
+    }
 
-        // Find global min/max across all series
-        let mut global_min = f64::INFINITY;
-        let mut global_max = f64::NEG_INFINITY;
-        let mut max_length = 0;
-
-        for series in &data.columns {
-            if !series.data.is_empty() {
-                let min_val = series.data.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-                let max_val = series.data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-                global_min = global_min.min(min_val);
-                global_max = global_max.max(max_val);
-                max_length = max_length.max(series.data.len());
-            }
-        }
-
-        if max_length == 0 {
-            return Err(anyhow!("All data series are empty"));
-        }
-
-        // Handle edge case where all values are the same
-        let (y_min, y_max) = if (global_max - global_min).abs() < f64::EPSILON {
-            (global_min - 1.0, global_max + 1.0)
+    fn apply_color(&self, text: &str, color_name: &str) -> String {
+        if let Some(color) = self.parse_color(color_name) {
+            format!("{}", text.with(color))
         } else {
-            let padding = (global_max - global_min) * 0.05;
-            (global_min - padding, global_max + padding)
-        };
+            text.to_string()
+        }
+    }
 
-        canvas.set_ranges((0.0, (max_length - 1) as f64), (y_min, y_max));
-        canvas.draw_axis();
-
-        let colors = [
-            Color::Red,
-            Color::Green,
-            Color::Blue,
-            Color::Yellow,
-            Color::Magenta,
-            Color::Cyan,
-        ];
-        let symbols = ['●', '■', '▲', '◆', '▼', '★'];
-
-        // Plot each series with different colors/symbols
-        for (series_idx, series) in data.columns.iter().enumerate() {
-            if series.data.is_empty() {
-                continue;
-            }
-
-            let color = Some(colors[series_idx % colors.len()]);
-            let symbol = symbols[series_idx % symbols.len()];
-
-            // Plot points
-            for (i, &value) in series.data.iter().enumerate() {
-                let x = i as f64;
-                canvas.plot_point_with_color(x, value, symbol, color);
-            }
-
-            // Connect points with lines
-            for i in 0..series.data.len() - 1 {
-                let x1 = i as f64;
-                let y1 = series.data[i];
-                let x2 = (i + 1) as f64;
-                let y2 = series.data[i + 1];
-                
-                canvas.plot_line_with_color(x1, y1, x2, y2, '·', color);
+    fn parse_color(&self, color_str: &str) -> Option<Color> {
+        // Try hex color first
+        if color_str.starts_with('#') && color_str.len() == 7 {
+            if let Ok(hex_value) = u32::from_str_radix(&color_str[1..], 16) {
+                let r = ((hex_value >> 16) & 0xFF) as u8;
+                let g = ((hex_value >> 8) & 0xFF) as u8;
+                let b = (hex_value & 0xFF) as u8;
+                return Some(Color::Rgb { r, g, b });
             }
         }
 
-        Ok(())
+        // Fall back to named colors
+        match color_str.to_lowercase().as_str() {
+            "red" => Some(Color::Red),
+            "green" => Some(Color::Green),
+            "blue" => Some(Color::Blue),
+            "yellow" => Some(Color::Yellow),
+            "magenta" => Some(Color::Magenta),
+            "cyan" => Some(Color::Cyan),
+            "white" => Some(Color::White),
+            "black" => Some(Color::Black),
+            _ => None,
+        }
     }
 
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => None,
-            }
-        })
-    }
 }
 
 #[cfg(test)]

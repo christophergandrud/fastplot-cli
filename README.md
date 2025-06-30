@@ -1,10 +1,12 @@
 # FastPlot-CLI
 
+[Status: **WIP**]
+
 A high-performance terminal plotting tool implemented in Rust, inspired by YouPlot. FastPlot provides 10-100x faster performance while maintaining a familiar command-line interface for data visualization directly in your terminal.
 
 ## 🚀 Features
 
-- **Ultra-fast performance**: 10-100x faster than YouPlot for large datasets
+- **Ultra-fast performance**
 - **Multiple plot types**: Bar charts, line plots, scatter plots, histograms, density plots, and box plots
 - **Unicode rendering**: Beautiful plots using Unicode characters
 - **Color support**: Terminal colors for enhanced visualization
