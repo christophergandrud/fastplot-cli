@@ -3,6 +3,7 @@ use anyhow::{Result, anyhow};
 use std::io::Read;
 use csv::{ReaderBuilder, StringRecord};
 
+#[allow(dead_code)]
 pub struct FastParser {
     delimiter: u8,
     has_header: bool,
@@ -115,11 +116,13 @@ impl Default for FastParser {
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_csv_data(data: &str, delimiter: char, has_header: bool) -> Result<DataFrame> {
     let parser = FastParser::new(delimiter, has_header);
     parser.parse_string(data)
 }
 
+#[allow(dead_code)]
 pub fn parse_file_data<R: Read>(reader: R, delimiter: char, has_header: bool, format: DataFormat) -> Result<DataFrame> {
     let parser = FastParser::new(delimiter, has_header);
     parser.parse_with_format(reader, format)

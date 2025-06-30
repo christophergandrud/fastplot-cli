@@ -6,6 +6,7 @@ pub struct Series {
     pub data: Vec<f64>,
 }
 
+#[allow(dead_code)]
 impl Series {
     pub fn new(name: String, data: Vec<f64>) -> Self {
         Self { name, data }
@@ -26,6 +27,7 @@ pub struct DataFrame {
     pub headers: Option<Vec<String>>,
 }
 
+#[allow(dead_code)]
 impl DataFrame {
     pub fn new() -> Self {
         Self {

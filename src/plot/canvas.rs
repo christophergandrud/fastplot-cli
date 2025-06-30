@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use unicode_width::UnicodeWidthChar;
 use std::fmt;
 use crossterm::style::{Color, Stylize};

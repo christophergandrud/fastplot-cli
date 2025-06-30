@@ -12,11 +12,18 @@ use anyhow::Result;
 pub use canvas::Canvas;
 pub use bar::BarChart;
 pub use line::LinePlot;
-pub use scatter::{ScatterPlot, MultiScatterPlot};
-pub use histogram::{Histogram, CumulativeHistogram};
+pub use scatter::ScatterPlot;
+#[allow(unused_imports)]
+pub use scatter::MultiScatterPlot;
+pub use histogram::Histogram;
+#[allow(unused_imports)]
+pub use histogram::CumulativeHistogram;
 pub use density::{DensityPlot, ViolinPlot, KernelType};
-pub use boxplot::{BoxPlot, NotchedBoxPlot, Orientation, OutlierMethod};
+pub use boxplot::BoxPlot;
+#[allow(unused_imports)]
+pub use boxplot::{NotchedBoxPlot, Orientation, OutlierMethod};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum PlotType {
     Bar,
@@ -31,6 +38,7 @@ pub enum PlotType {
     Count,
 }
 
+#[allow(dead_code)]
 impl PlotType {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
@@ -49,8 +57,10 @@ impl PlotType {
     }
 }
 
+#[allow(dead_code)]
 pub struct PlotRenderer;
 
+#[allow(dead_code)]
 impl PlotRenderer {
     pub fn render(plot_type: PlotType, data: &DataFrame, config: &PlotConfig) -> Result<String> {
         match plot_type {

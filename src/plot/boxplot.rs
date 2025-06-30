@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::Canvas;
 use anyhow::{Result, anyhow};
@@ -353,6 +355,7 @@ impl BoxPlot {
     }
 }
 
+#[allow(dead_code)]
 struct BoxStatistics {
     median: f64,
     q1: f64,
@@ -364,6 +367,7 @@ struct BoxStatistics {
 }
 
 /// Notched box plot that shows confidence intervals around the median
+#[allow(dead_code)]
 pub struct NotchedBoxPlot {
     orientation: Orientation,
     confidence_level: f64,

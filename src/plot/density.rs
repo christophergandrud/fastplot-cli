@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::Canvas;
 use anyhow::{Result, anyhow};
@@ -217,6 +219,7 @@ impl DensityPlot {
     }
 }
 
+#[allow(dead_code)]
 struct DensityData {
     x_values: Vec<f64>,
     density_values: Vec<f64>,

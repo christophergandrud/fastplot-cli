@@ -85,7 +85,7 @@ impl LinePlot {
         Ok(())
     }
 
-    fn render_multi_series(&self, canvas: &mut Canvas, data: &DataFrame, config: &PlotConfig) -> Result<()> {
+    fn render_multi_series(&self, canvas: &mut Canvas, data: &DataFrame, _config: &PlotConfig) -> Result<()> {
         if data.columns.is_empty() {
             return Err(anyhow!("No data series provided"));
         }

@@ -2,6 +2,9 @@ use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use std::f64::consts::PI;
 
+// Test data generators - marked as dead_code since they're only used in tests/examples
+
+#[allow(dead_code)]
 pub fn linear_data(n: usize, slope: f64, intercept: f64, noise: f64) -> Vec<(f64, f64)> {
     let mut rng = StdRng::seed_from_u64(42);
     let mut data = Vec::with_capacity(n);
@@ -17,6 +20,7 @@ pub fn linear_data(n: usize, slope: f64, intercept: f64, noise: f64) -> Vec<(f64
     data
 }
 
+#[allow(dead_code)]
 pub fn sine_wave(n: usize, amplitude: f64, frequency: f64, phase: f64) -> Vec<(f64, f64)> {
     let mut data = Vec::with_capacity(n);
     
@@ -29,6 +33,7 @@ pub fn sine_wave(n: usize, amplitude: f64, frequency: f64, phase: f64) -> Vec<(f
     data
 }
 
+#[allow(dead_code)]
 pub fn random_walk(n: usize, step_size: f64) -> Vec<(f64, f64)> {
     let mut rng = StdRng::seed_from_u64(42);
     let mut data = Vec::with_capacity(n);
@@ -44,6 +49,7 @@ pub fn random_walk(n: usize, step_size: f64) -> Vec<(f64, f64)> {
     data
 }
 
+#[allow(dead_code)]
 pub fn normal_distribution(n: usize, mean: f64, std_dev: f64) -> Vec<f64> {
     let mut rng = StdRng::seed_from_u64(42);
     let mut data = Vec::with_capacity(n);
@@ -59,6 +65,7 @@ pub fn normal_distribution(n: usize, mean: f64, std_dev: f64) -> Vec<f64> {
     data
 }
 
+#[allow(dead_code)]
 pub fn test_points(n: usize) -> Vec<(f64, f64)> {
     (0..n).map(|i| (i as f64, (i * 2) as f64)).collect()
 }

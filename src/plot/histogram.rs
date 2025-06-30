@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::Canvas;
 use anyhow::{Result, anyhow};
