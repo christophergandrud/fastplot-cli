@@ -1,3 +1,102 @@
 pub mod canvas;
+pub mod bar;
+pub mod line;
+pub mod scatter;
+pub mod histogram;
+pub mod density;
+pub mod boxplot;
+
+use crate::data::{DataFrame, PlotConfig};
+use anyhow::Result;
 
 pub use canvas::Canvas;
+pub use bar::BarChart;
+pub use line::LinePlot;
+pub use scatter::{ScatterPlot, MultiScatterPlot};
+pub use histogram::{Histogram, CumulativeHistogram};
+pub use density::{DensityPlot, ViolinPlot, KernelType};
+pub use boxplot::{BoxPlot, NotchedBoxPlot, Orientation, OutlierMethod};
+
+#[derive(Debug, Clone)]
+pub enum PlotType {
+    Bar,
+    BarHorizontal,
+    Line,
+    Lines,
+    Scatter,
+    Histogram,
+    Density,
+    BoxPlot,
+    Violin,
+    Count,
+}
+
+impl PlotType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "bar" => Some(PlotType::Bar),
+            "barh" | "bar-horizontal" => Some(PlotType::BarHorizontal),
+            "line" => Some(PlotType::Line),
+            "lines" => Some(PlotType::Lines),
+            "scatter" => Some(PlotType::Scatter),
+            "hist" | "histogram" => Some(PlotType::Histogram),
+            "density" => Some(PlotType::Density),
+            "box" | "boxplot" => Some(PlotType::BoxPlot),
+            "violin" => Some(PlotType::Violin),
+            "count" => Some(PlotType::Count),
+            _ => None,
+        }
+    }
+}
+
+pub struct PlotRenderer;
+
+impl PlotRenderer {
+    pub fn render(plot_type: PlotType, data: &DataFrame, config: &PlotConfig) -> Result<String> {
+        match plot_type {
+            PlotType::Bar => {
+                let chart = BarChart::vertical();
+                chart.render(data, config)
+            }
+            PlotType::BarHorizontal => {
+                let chart = BarChart::horizontal();
+                chart.render(data, config)
+            }
+            PlotType::Line => {
+                let chart = LinePlot::single();
+                chart.render(data, config)
+            }
+            PlotType::Lines => {
+                let chart = LinePlot::multi();
+                chart.render(data, config)
+            }
+            PlotType::Scatter => {
+                let chart = ScatterPlot::default();
+                chart.render(data, config)
+            }
+            PlotType::Histogram => {
+                let chart = Histogram::auto_bins();
+                chart.render(data, config)
+            }
+            PlotType::Density => {
+                let chart = DensityPlot::auto_bandwidth()
+                    .with_kernel(KernelType::Gaussian)
+                    .with_resolution(200);
+                chart.render(data, config)
+            }
+            PlotType::BoxPlot => {
+                let chart = BoxPlot::vertical();
+                chart.render(data, config)
+            }
+            PlotType::Violin => {
+                let chart = ViolinPlot::new();
+                chart.render(data, config)
+            }
+            PlotType::Count => {
+                // For count plots, convert data to histogram
+                let chart = Histogram::auto_bins();
+                chart.render(data, config)
+            }
+        }
+    }
+}
