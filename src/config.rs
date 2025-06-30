@@ -1,21 +1,21 @@
 use crate::data::PlotConfig;
-use crate::cli::Args;
+use crate::cli::PlotOptions;
 
-impl From<&Args> for PlotConfig {
-    fn from(args: &Args) -> Self {
+impl From<&PlotOptions> for PlotConfig {
+    fn from(options: &PlotOptions) -> Self {
         Self {
-            width: args.width,
-            height: args.height,
-            title: args.title.clone(),
-            xlabel: args.xlabel.clone(),
-            ylabel: args.ylabel.clone(),
-            delimiter: args.delimiter,
-            has_header: args.has_header,
-            format: args.format.clone(),
-            xlim: args.xlim,
-            ylim: args.ylim,
-            color: args.color.clone(),
-            symbol: args.symbol,
+            width: options.width,
+            height: options.height,
+            title: options.title.clone(),
+            xlabel: options.xlabel.clone(),
+            ylabel: options.ylabel.clone(),
+            delimiter: options.delimiter,
+            has_header: options.has_header,
+            format: options.format.clone(),
+            xlim: options.xlim,
+            ylim: options.ylim,
+            color: options.color.clone(),
+            symbol: options.symbol,
         }
     }
 }

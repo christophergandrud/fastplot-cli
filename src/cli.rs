@@ -8,7 +8,10 @@ use std::path::PathBuf;
 pub struct Args {
     #[command(subcommand)]
     pub command: Commands,
+}
 
+#[derive(Parser, Debug, Clone)]
+pub struct PlotOptions {
     #[arg(short = 'd', long = "delimiter", default_value = "\t", help = "Field delimiter")]
     pub delimiter: char,
 
@@ -67,21 +70,45 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     #[command(about = "Horizontal bar chart")]
-    Bar,
+    Bar {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Histogram")]
-    Hist,
+    Hist {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Line chart")]
-    Line,
+    Line {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Multi-series line chart")]
-    Lines,
+    Lines {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Scatter plot")]
-    Scatter,
+    Scatter {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Density plot")]
-    Density,
+    Density {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Box plot")]
-    Boxplot,
+    Boxplot {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Count-based bar chart")]
-    Count,
+    Count {
+        #[command(flatten)]
+        options: PlotOptions,
+    },
     #[command(about = "Performance testing")]
     Benchmark {
         #[arg(long = "size", default_value = "1000", help = "Dataset size")]

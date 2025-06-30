@@ -48,10 +48,10 @@ Create vertical or horizontal bar charts from your data.
 echo "10\n25\n15\n30\n20" | fastplot bar -t "Revenue by Quarter"
 
 # Horizontal bar chart
-echo "10\n25\n15\n30\n20" | fastplot barh -t "Revenue by Quarter" -c green
+echo "10\n25\n15\n30\n20" | fastplot bar -t "Revenue by Quarter" -c green
 
 # With custom symbols and colors
-fastplot bar sales.csv -s ▓ -c magenta -w 50 -h 25
+fastplot bar sales.csv --symbol ▓ -c magenta -w 50 --height 25
 ```
 
 **Output Example:**

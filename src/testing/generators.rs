@@ -12,7 +12,7 @@ pub fn linear_data(n: usize, slope: f64, intercept: f64, noise: f64) -> Vec<(f64
     for i in 0..n {
         let x = i as f64;
         let y_perfect = slope * x + intercept;
-        let noise_val = (rng.gen::<f64>() - 0.5) * 2.0 * noise;
+        let noise_val = (rng.random::<f64>() - 0.5) * 2.0 * noise;
         let y = y_perfect + noise_val;
         data.push((x, y));
     }
@@ -41,7 +41,7 @@ pub fn random_walk(n: usize, step_size: f64) -> Vec<(f64, f64)> {
     
     for i in 0..n {
         let x = i as f64;
-        let step = (rng.gen::<f64>() - 0.5) * 2.0 * step_size;
+        let step = (rng.random::<f64>() - 0.5) * 2.0 * step_size;
         y += step;
         data.push((x, y));
     }
@@ -56,8 +56,8 @@ pub fn normal_distribution(n: usize, mean: f64, std_dev: f64) -> Vec<f64> {
     
     for _ in 0..n {
         // Box-Muller transform for normal distribution
-        let u1: f64 = rng.gen();
-        let u2: f64 = rng.gen();
+        let u1: f64 = rng.random();
+        let u2: f64 = rng.random();
         let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
         data.push(mean + std_dev * z0);
     }
