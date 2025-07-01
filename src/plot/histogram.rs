@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
+use crate::plot::{Canvas, ColorUtils, DataUtils};
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -70,12 +70,12 @@ impl Histogram {
     }
 
     fn calculate_histogram(&self, data: &[f64]) -> Result<HistogramData> {
-        let min_val = data.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max_val = data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-
-        if (max_val - min_val).abs() < f64::EPSILON {
+        // Use shared utilities for range calculation
+        if DataUtils::has_constant_values(data) {
             return Err(anyhow!("All data values are the same, cannot create histogram"));
         }
+        
+        let (min_val, max_val) = DataUtils::calculate_range(data)?;
 
         let (bins, bin_width) = if let Some(width) = self.bin_width {
             let num_bins = ((max_val - min_val) / width).ceil() as usize;
@@ -84,10 +84,10 @@ impl Histogram {
             let width = (max_val - min_val) / num_bins as f64;
             (num_bins, width)
         } else {
-            // Auto-calculate bins using Sturges' rule
-            let num_bins = (1.0 + (data.len() as f64).log2()).ceil() as usize;
+            // Use shared utility for optimal bin calculation
+            let num_bins = DataUtils::calculate_optimal_bins(data.len());
             let width = (max_val - min_val) / num_bins as f64;
-            (num_bins.max(1), width)
+            (num_bins, width)
         };
 
         let mut bin_counts = vec![0; bins];
@@ -144,7 +144,7 @@ impl Histogram {
         let y_ticks = 5.min(max_count as usize);
         canvas.draw_axes_with_ticks(num_bins, y_ticks);
 
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let symbol = config.symbol.unwrap_or('█');
 
         // Draw histogram bars
@@ -321,32 +321,7 @@ impl Histogram {
         result
     }
 
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            // Try hex color first
-            if s.starts_with('#') && s.len() == 7 {
-                if let Ok(hex_value) = u32::from_str_radix(&s[1..], 16) {
-                    let r = ((hex_value >> 16) & 0xFF) as u8;
-                    let g = ((hex_value >> 8) & 0xFF) as u8;
-                    let b = (hex_value & 0xFF) as u8;
-                    return Some(Color::Rgb { r, g, b });
-                }
-            }
-            
-            // Fall back to named colors
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => None,
-            }
-        })
-    }
+    // Color parsing method removed - now using shared ColorUtils
 }
 
 struct HistogramData {

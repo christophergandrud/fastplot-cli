@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
+use crate::plot::{Canvas, ColorUtils};
 use anyhow::{Result, anyhow};
-use crossterm::style::Color;
 use std::f64::consts::{PI, E};
 
 pub struct DensityPlot {
@@ -179,7 +178,7 @@ impl DensityPlot {
         canvas.set_ranges((x_min, x_max), (0.0, y_max));
         canvas.draw_axis();
 
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let line_symbol = '·';
         let point_symbol = config.symbol.unwrap_or('●');
 
@@ -202,21 +201,7 @@ impl DensityPlot {
         Ok(())
     }
 
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => None,
-            }
-        })
-    }
+    // Color parsing method removed - now using shared ColorUtils
 }
 
 #[allow(dead_code)]

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
+use crate::plot::{Canvas, ColorUtils};
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -98,7 +98,7 @@ impl ScatterPlot {
         canvas.set_ranges(final_x_range, final_y_range);
         canvas.draw_axis();
 
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let symbol = config.symbol.unwrap_or('●');
 
         // Plot points
@@ -129,21 +129,7 @@ impl ScatterPlot {
         }
     }
 
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => None,
-            }
-        })
-    }
+    // Color parsing method removed - now using shared ColorUtils
 }
 
 /// Special scatter plot for multi-dimensional data

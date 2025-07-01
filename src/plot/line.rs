@@ -1,6 +1,6 @@
 use crate::data::{DataFrame, PlotConfig};
+use crate::plot::{ColorUtils, DataUtils, RenderUtils};
 use anyhow::{Result, anyhow};
-use crossterm::style::{Stylize, Color};
 
 pub struct LinePlot {
     multi_series: bool,
@@ -39,14 +39,15 @@ impl LinePlot {
 
         let symbol = config.symbol.unwrap_or('●');
         
-        // Find min and max values for scaling
-        let min_val = data.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max_val = data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        // Validate and analyze data using shared utilities
+        RenderUtils::validate_plot_data(data, "line plot")?;
         
-        if (max_val - min_val).abs() < f64::EPSILON {
-            return Ok(format!("{}\n\nAll values are the same: {}", 
-                config.title.as_deref().unwrap_or(""), max_val));
+        if DataUtils::has_constant_values(data) {
+            return RenderUtils::handle_constant_values(data, config);
         }
+
+        // Calculate data range with utilities
+        let (min_val, max_val) = DataUtils::calculate_range(data)?;
 
         // Calculate chart dimensions
         let chart_height = config.height.saturating_sub(5);
@@ -117,7 +118,7 @@ impl LinePlot {
             // Add the row content with color support
             let row_str: String = row.iter().collect();
             if let Some(color_name) = &config.color {
-                let colored_str = self.apply_color(&row_str, color_name);
+                let colored_str = ColorUtils::apply_color_string(&row_str, color_name);
                 output.push_str(&colored_str);
             } else {
                 output.push_str(&row_str);
@@ -299,38 +300,7 @@ impl LinePlot {
         self.render_single_series_ascii(&data.columns[0], config)
     }
 
-    fn apply_color(&self, text: &str, color_name: &str) -> String {
-        if let Some(color) = self.parse_color(color_name) {
-            format!("{}", text.with(color))
-        } else {
-            text.to_string()
-        }
-    }
-
-    fn parse_color(&self, color_str: &str) -> Option<Color> {
-        // Try hex color first
-        if color_str.starts_with('#') && color_str.len() == 7 {
-            if let Ok(hex_value) = u32::from_str_radix(&color_str[1..], 16) {
-                let r = ((hex_value >> 16) & 0xFF) as u8;
-                let g = ((hex_value >> 8) & 0xFF) as u8;
-                let b = (hex_value & 0xFF) as u8;
-                return Some(Color::Rgb { r, g, b });
-            }
-        }
-
-        // Fall back to named colors
-        match color_str.to_lowercase().as_str() {
-            "red" => Some(Color::Red),
-            "green" => Some(Color::Green),
-            "blue" => Some(Color::Blue),
-            "yellow" => Some(Color::Yellow),
-            "magenta" => Some(Color::Magenta),
-            "cyan" => Some(Color::Cyan),
-            "white" => Some(Color::White),
-            "black" => Some(Color::Black),
-            _ => None,
-        }
-    }
+    // Color parsing methods removed - now using shared ColorUtils
 
 }
 

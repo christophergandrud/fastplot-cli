@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
+use crate::plot::{Canvas, ColorUtils};
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -180,7 +180,7 @@ impl BoxPlot {
         canvas.set_ranges((x_position - 1.0, x_position + 1.0), (y_min - y_padding, y_max + y_padding));
         canvas.draw_axis();
 
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let box_width = 0.6;
 
         // Draw whiskers
@@ -215,7 +215,7 @@ impl BoxPlot {
         canvas.set_ranges((x_min - x_padding, x_max + x_padding), (y_position - 1.0, y_position + 1.0));
         canvas.draw_axis();
 
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let box_height = 0.6;
 
         // Draw whiskers
@@ -338,21 +338,7 @@ impl BoxPlot {
         Ok(())
     }
 
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => Some(Color::Blue),
-            }
-        })
-    }
+    // Color parsing method removed - now using shared ColorUtils
 }
 
 #[allow(dead_code)]

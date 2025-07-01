@@ -1,7 +1,7 @@
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::Canvas;
+use crate::plot::{Canvas, ColorUtils, DataUtils, RenderUtils};
 use anyhow::{Result, anyhow};
-use crossterm::style::{Color, Stylize};
+use crossterm::style::Color;
 
 pub struct BarChart {
     horizontal: bool,
@@ -41,14 +41,16 @@ impl BarChart {
         let data = &series.data;
         let symbol = config.symbol.unwrap_or('█');
         
-        // Find min and max values for scaling
-        let min_val = data.iter().fold(f64::INFINITY, |a, &b| a.min(b)).min(0.0);
-        let max_val = data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        // Validate and analyze data
+        RenderUtils::validate_plot_data(data, "bar chart")?;
         
-        if (max_val - min_val).abs() < f64::EPSILON {
-            return Ok(format!("{}\n\nAll values are the same: {}", 
-                config.title.as_deref().unwrap_or(""), max_val));
+        if DataUtils::has_constant_values(data) {
+            return RenderUtils::handle_constant_values(data, config);
         }
+
+        // Calculate data range with utilities
+        let (min_val_orig, max_val) = DataUtils::calculate_range(data)?;
+        let min_val = min_val_orig.min(0.0); // Ensure we include zero for bar charts
 
         // Calculate chart dimensions
         let chart_height = config.height.saturating_sub(5); // Reserve space for title and axis
@@ -100,11 +102,12 @@ impl BarChart {
                 
                 if bar_height_ratio >= bar_fill_threshold {
                     // Fill this part of the bar
+                    let symbols = format!("{}{}", symbol, symbol);
                     if let Some(color_name) = &config.color {
-                        let colored_symbols = self.apply_color(&format!("{}{}", symbol, symbol), color_name);
+                        let colored_symbols = ColorUtils::apply_color_string(&symbols, color_name);
                         output.push_str(&colored_symbols);
                     } else {
-                        output.push_str(&format!("{}{}", symbol, symbol));
+                        output.push_str(&symbols);
                     }
                 } else {
                     // Empty space above the bar
@@ -157,20 +160,21 @@ impl BarChart {
         );
 
         let data = &series.data;
-        let min_val = data.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max_val = data.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         
-        let (x_min, x_max) = if (max_val - min_val).abs() < f64::EPSILON {
-            (min_val - 1.0, max_val + 1.0)
+        // Use shared utilities for data processing
+        if DataUtils::has_constant_values(data) {
+            let (x_min, x_max) = DataUtils::calculate_range_with_padding(data, 10.0)?;
+            canvas.set_ranges((x_min, x_max), (0.0, data.len() as f64));
         } else {
-            (min_val.min(0.0), max_val)
-        };
+            let (min_val, max_val) = DataUtils::calculate_range(data)?;
+            let (x_min, x_max) = (min_val.min(0.0), max_val);
+            canvas.set_ranges((x_min, x_max), (0.0, data.len() as f64));
+        }
 
-        canvas.set_ranges((x_min, x_max), (0.0, data.len() as f64));
         canvas.draw_axis();
 
         let bar_height = (config.height as f64 / data.len() as f64).max(1.0);
-        let color = self.parse_color(&config.color);
+        let color = ColorUtils::parse_color(&config.color);
         let symbol = config.symbol.unwrap_or('█');
 
         for (i, &value) in data.iter().enumerate() {
@@ -203,54 +207,7 @@ impl BarChart {
         }
     }
 
-    fn apply_color(&self, text: &str, color_name: &str) -> String {
-        if let Some(color) = self.parse_hex_color(color_name) {
-            format!("{}", text.with(color))
-        } else {
-            text.to_string()
-        }
-    }
-
-    fn parse_hex_color(&self, color_str: &str) -> Option<Color> {
-        // Try hex color first
-        if color_str.starts_with('#') && color_str.len() == 7 {
-            if let Ok(hex_value) = u32::from_str_radix(&color_str[1..], 16) {
-                let r = ((hex_value >> 16) & 0xFF) as u8;
-                let g = ((hex_value >> 8) & 0xFF) as u8;
-                let b = (hex_value & 0xFF) as u8;
-                return Some(Color::Rgb { r, g, b });
-            }
-        }
-
-        // Fall back to named colors
-        match color_str.to_lowercase().as_str() {
-            "red" => Some(Color::Red),
-            "green" => Some(Color::Green),
-            "blue" => Some(Color::Blue),
-            "yellow" => Some(Color::Yellow),
-            "magenta" => Some(Color::Magenta),
-            "cyan" => Some(Color::Cyan),
-            "white" => Some(Color::White),
-            "black" => Some(Color::Black),
-            _ => None,
-        }
-    }
-
-    fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
-        color_str.as_ref().and_then(|s| {
-            match s.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                "white" => Some(Color::White),
-                "black" => Some(Color::Black),
-                _ => None,
-            }
-        })
-    }
+    // Color parsing methods removed - now using shared ColorUtils
 }
 
 #[cfg(test)]

@@ -6,6 +6,12 @@ pub mod histogram;
 pub mod density;
 pub mod boxplot;
 
+// Shared utility modules
+pub mod color_utils;
+pub mod axis_utils;
+pub mod data_utils;
+pub mod render_utils;
+
 use crate::data::{DataFrame, PlotConfig};
 use anyhow::Result;
 
@@ -22,6 +28,11 @@ pub use density::{DensityPlot, KernelType};
 pub use boxplot::BoxPlot;
 #[allow(unused_imports)]
 pub use boxplot::{NotchedBoxPlot, Orientation, OutlierMethod};
+
+// Export utility modules
+pub use color_utils::ColorUtils;
+pub use data_utils::DataUtils;
+pub use render_utils::RenderUtils;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
