@@ -18,7 +18,7 @@ pub use scatter::MultiScatterPlot;
 pub use histogram::Histogram;
 #[allow(unused_imports)]
 pub use histogram::CumulativeHistogram;
-pub use density::{DensityPlot, ViolinPlot, KernelType};
+pub use density::{DensityPlot, KernelType};
 pub use boxplot::BoxPlot;
 #[allow(unused_imports)]
 pub use boxplot::{NotchedBoxPlot, Orientation, OutlierMethod};
@@ -34,7 +34,6 @@ pub enum PlotType {
     Histogram,
     Density,
     BoxPlot,
-    Violin,
     Count,
 }
 
@@ -50,7 +49,6 @@ impl PlotType {
             "hist" | "histogram" => Some(PlotType::Histogram),
             "density" => Some(PlotType::Density),
             "box" | "boxplot" => Some(PlotType::BoxPlot),
-            "violin" => Some(PlotType::Violin),
             "count" => Some(PlotType::Count),
             _ => None,
         }
@@ -96,10 +94,6 @@ impl PlotRenderer {
             }
             PlotType::BoxPlot => {
                 let chart = BoxPlot::vertical();
-                chart.render(data, config)
-            }
-            PlotType::Violin => {
-                let chart = ViolinPlot::new();
                 chart.render(data, config)
             }
             PlotType::Count => {

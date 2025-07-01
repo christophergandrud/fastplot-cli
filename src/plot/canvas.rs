@@ -321,6 +321,10 @@ impl Canvas {
     }
 
     pub fn fill_area(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, symbol: char) {
+        self.fill_area_with_color(x1, y1, x2, y2, symbol, None);
+    }
+
+    pub fn fill_area_with_color(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, symbol: char, color: Option<Color>) {
         let cx1 = self.data_to_canvas_x(x1.min(x2));
         let cy1 = self.data_to_canvas_y(y1.max(y2));
         let cx2 = self.data_to_canvas_x(x1.max(x2));
@@ -330,10 +334,20 @@ impl Canvas {
             for x in cx1..=cx2.min(self.width - 1) {
                 if y < self.buffer.len() && x < self.buffer[y].len() {
                     self.buffer[y][x] = symbol;
+                    self.color_buffer[y][x] = color;
                 }
             }
         }
     }
+
+    // Getter methods for private fields
+    pub fn get_width(&self) -> usize { self.width }
+    pub fn get_height(&self) -> usize { self.height }
+    pub fn get_x_range(&self) -> (f64, f64) { self.x_range }
+    pub fn get_y_range(&self) -> (f64, f64) { self.y_range }
+    pub fn get_title(&self) -> &Option<String> { &self.title }
+    pub fn get_xlabel(&self) -> &Option<String> { &self.xlabel }
+    pub fn get_buffer(&self) -> &Vec<Vec<char>> { &self.buffer }
 }
 
 impl fmt::Display for Canvas {

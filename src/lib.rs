@@ -8,7 +8,7 @@ pub mod testing;
 pub use data::{DataFrame, Series, PlotConfig, DataFormat};
 pub use plot::{
     Canvas, BarChart, LinePlot, ScatterPlot, MultiScatterPlot, 
-    Histogram, CumulativeHistogram, DensityPlot, ViolinPlot, KernelType,
+    Histogram, CumulativeHistogram, DensityPlot, KernelType,
     BoxPlot, NotchedBoxPlot, Orientation, OutlierMethod,
     PlotType, PlotRenderer
 };

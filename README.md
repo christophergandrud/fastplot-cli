@@ -196,20 +196,6 @@ fastplot box data.csv --outlier-method tukey
 - Multiple groups support
 - Notched boxes for confidence intervals
 
-### Violin Plots
-
-Combine density estimation with box plot information.
-
-```bash
-# Basic violin plot
-fastplot violin data.csv -t "Distribution Shape"
-
-# Custom bandwidth
-fastplot violin data.csv --bandwidth 0.8 -c magenta
-
-# Hide quartile lines
-fastplot violin data.csv --no-quartiles --no-median
-```
 
 ## ⚙️ Command Line Options
 

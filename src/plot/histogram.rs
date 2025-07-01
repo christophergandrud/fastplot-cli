@@ -62,7 +62,11 @@ impl Histogram {
         let histogram_data = self.calculate_histogram(&series.data)?;
         self.render_histogram(&mut canvas, &histogram_data, config)?;
 
-        Ok(canvas.render_colored(config.color.is_some()))
+        if config.color.is_some() {
+            Ok(self.render_histogram_with_labels_colored(&canvas, &histogram_data, config))
+        } else {
+            Ok(self.render_histogram_with_labels(&canvas, &histogram_data, config))
+        }
     }
 
     fn calculate_histogram(&self, data: &[f64]) -> Result<HistogramData> {
@@ -134,7 +138,11 @@ impl Histogram {
         let y_max = max_count * 1.1; // Add 10% padding at the top
 
         canvas.set_ranges((x_min, x_max), (0.0, y_max));
-        canvas.draw_axis();
+        
+        // Draw axes with proper tick marks
+        let num_bins = hist_data.bin_values.len();
+        let y_ticks = 5.min(max_count as usize);
+        canvas.draw_axes_with_ticks(num_bins, y_ticks);
 
         let color = self.parse_color(&config.color);
         let symbol = config.symbol.unwrap_or('█');
@@ -153,34 +161,179 @@ impl Histogram {
     }
 
     fn draw_histogram_bar(&self, canvas: &mut Canvas, x_left: f64, x_right: f64, height: f64, symbol: char, color: Option<Color>) {
-        // Fill the histogram bar from bottom to height
-        let steps_x = ((x_right - x_left) * 20.0) as usize + 1; // More resolution for better bars
-        let steps_y = (height * 10.0) as usize + 1;
+        // Use fill_area to create solid rectangular bars
+        canvas.fill_area_with_color(x_left, 0.0, x_right, height, symbol, color);
         
-        for i in 0..steps_x {
-            let x = x_left + (x_right - x_left) * (i as f64 / steps_x.max(1) as f64);
+        // Draw clear bar edges for definition
+        canvas.plot_line_with_color(x_left, 0.0, x_left, height, '│', color);
+        canvas.plot_line_with_color(x_right, 0.0, x_right, height, '│', color);
+        canvas.plot_line_with_color(x_left, height, x_right, height, '─', color);
+    }
+
+    fn render_histogram_with_labels(&self, canvas: &Canvas, hist_data: &HistogramData, _config: &PlotConfig) -> String {
+        let mut result = String::new();
+        
+        // Add title if present
+        if let Some(title) = canvas.get_title() {
+            let padding = if title.len() < canvas.get_width() {
+                (canvas.get_width() - title.len()) / 2
+            } else {
+                0
+            };
+            result.push_str(&" ".repeat(padding));
+            result.push_str(title);
+            result.push('\n');
+            result.push('\n');
+        }
+        
+        // Get canvas lines
+        let mut canvas_lines: Vec<String> = Vec::new();
+        for row in canvas.get_buffer() {
+            let line: String = row.iter().collect();
+            canvas_lines.push(line);
+        }
+        
+        // Add Y-axis values (integer values for frequency)
+        let max_freq = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b)) as i32;
+        let y_range = canvas.get_y_range();
+        let y_step = (y_range.1 - y_range.0) / (canvas.get_height() as f64 - 1.0);
+        
+        let mut last_shown_label = -1i32;
+        for (i, line) in canvas_lines.iter().enumerate() {
+            let y_value = y_range.1 - (i as f64 * y_step);
+            let y_int = y_value.round() as i32;
             
-            for j in 0..steps_y {
-                let y = height * (j as f64 / steps_y.max(1) as f64);
-                
-                if canvas.is_point_in_bounds(x, y) {
-                    canvas.plot_point_with_color(x, y, symbol, color);
-                }
+            // Only show the label if it's different from the last one shown and within range
+            if y_int >= 0 && y_int <= max_freq && y_int != last_shown_label {
+                result.push_str(&format!("{:8} {}\n", y_int, line));
+                last_shown_label = y_int;
+            } else {
+                result.push_str(&format!("{:8} {}\n", " ", line));
             }
         }
         
-        // Draw the top edge of the bar
-        let edge_steps = ((x_right - x_left) * 50.0) as usize + 1;
-        for i in 0..edge_steps {
-            let x = x_left + (x_right - x_left) * (i as f64 / edge_steps.max(1) as f64);
-            if canvas.is_point_in_bounds(x, height) {
-                canvas.plot_point_with_color(x, height, '▀', color);
+        // Add X-axis line
+        result.push_str("         ");
+        for _ in 0..canvas.get_width() {
+            result.push('─');
+        }
+        result.push('\n');
+        
+        // Add X-axis labels (bin centers)
+        result.push_str("         ");
+        for i in 0..hist_data.bin_values.len() {
+            let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
+            let label = format!("{:.0}", bin_center);
+            let bin_width = canvas.get_width() / hist_data.bin_values.len();
+            let padding = bin_width.saturating_sub(label.len()) / 2;
+            result.push_str(&" ".repeat(padding));
+            result.push_str(&label);
+            result.push_str(&" ".repeat(bin_width - padding - label.len()));
+        }
+        result.push('\n');
+        
+        // Add x-label if present
+        if let Some(xlabel) = canvas.get_xlabel() {
+            let padding = if xlabel.len() < canvas.get_width() {
+                (canvas.get_width() - xlabel.len()) / 2
+            } else {
+                0
+            };
+            result.push_str(&" ".repeat(padding + 9)); // +9 for Y-axis space
+            result.push_str(xlabel);
+            result.push('\n');
+        }
+        
+        result
+    }
+
+    fn render_histogram_with_labels_colored(&self, canvas: &Canvas, hist_data: &HistogramData, _config: &PlotConfig) -> String {
+        let mut result = String::new();
+        
+        // Add title if present
+        if let Some(title) = canvas.get_title() {
+            let padding = if title.len() < canvas.get_width() {
+                (canvas.get_width() - title.len()) / 2
+            } else {
+                0
+            };
+            result.push_str(&" ".repeat(padding));
+            result.push_str(&format!("\x1b[1m{}\x1b[0m", title)); // Bold title
+            result.push('\n');
+            result.push('\n');
+        }
+        
+        // Get canvas lines with colors
+        let canvas_colored = canvas.render_colored(true);
+        let canvas_lines: Vec<String> = canvas_colored.lines().skip(if canvas.get_title().is_some() { 2 } else { 0 }).map(|s| s.to_string()).collect();
+        
+        // Add Y-axis values (integer values for frequency)
+        let max_freq = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b)) as i32;
+        let y_range = canvas.get_y_range();
+        let y_step = (y_range.1 - y_range.0) / (canvas.get_height() as f64 - 1.0);
+        
+        let mut last_shown_label = -1i32;
+        for (i, line) in canvas_lines.iter().enumerate() {
+            let y_value = y_range.1 - (i as f64 * y_step);
+            let y_int = y_value.round() as i32;
+            
+            // Only show the label if it's different from the last one shown and within range
+            if y_int >= 0 && y_int <= max_freq && y_int != last_shown_label {
+                result.push_str(&format!("{:8} {}\n", y_int, line));
+                last_shown_label = y_int;
+            } else {
+                result.push_str(&format!("{:8} {}\n", " ", line));
             }
         }
+        
+        // Add X-axis line
+        result.push_str("         ");
+        for _ in 0..canvas.get_width() {
+            result.push('─');
+        }
+        result.push('\n');
+        
+        // Add X-axis labels (bin centers)
+        result.push_str("         ");
+        for i in 0..hist_data.bin_values.len() {
+            let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
+            let label = format!("{:.0}", bin_center);
+            let bin_width = canvas.get_width() / hist_data.bin_values.len();
+            let padding = bin_width.saturating_sub(label.len()) / 2;
+            result.push_str(&" ".repeat(padding));
+            result.push_str(&label);
+            result.push_str(&" ".repeat(bin_width - padding - label.len()));
+        }
+        result.push('\n');
+        
+        // Add x-label if present
+        if let Some(xlabel) = canvas.get_xlabel() {
+            let padding = if xlabel.len() < canvas.get_width() {
+                (canvas.get_width() - xlabel.len()) / 2
+            } else {
+                0
+            };
+            result.push_str(&" ".repeat(padding + 9)); // +9 for Y-axis space
+            result.push_str(xlabel);
+            result.push('\n');
+        }
+        
+        result
     }
 
     fn parse_color(&self, color_str: &Option<String>) -> Option<Color> {
         color_str.as_ref().and_then(|s| {
+            // Try hex color first
+            if s.starts_with('#') && s.len() == 7 {
+                if let Ok(hex_value) = u32::from_str_radix(&s[1..], 16) {
+                    let r = ((hex_value >> 16) & 0xFF) as u8;
+                    let g = ((hex_value >> 8) & 0xFF) as u8;
+                    let b = (hex_value & 0xFF) as u8;
+                    return Some(Color::Rgb { r, g, b });
+                }
+            }
+            
+            // Fall back to named colors
             match s.to_lowercase().as_str() {
                 "red" => Some(Color::Red),
                 "green" => Some(Color::Green),
