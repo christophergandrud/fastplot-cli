@@ -37,7 +37,7 @@ pub use render_utils::RenderUtils;
 
 // Export layout system
 pub use layout::{
-    ElementLayout, BarStyle, TickStyle
+    ElementLayout, BarStyle, AxisRenderer
 };
 
 #[allow(dead_code)]

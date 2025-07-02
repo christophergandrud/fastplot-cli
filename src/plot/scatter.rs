@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::data::{DataFrame, PlotConfig};
-use crate::plot::{Canvas, ColorUtils};
+use crate::plot::{Canvas, ColorUtils, AxisRenderer};
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -46,9 +46,28 @@ impl ScatterPlot {
             config.ylabel.clone(),
         );
 
-        self.render_points(&mut canvas, x_series, y_series, config)?;
+        // Get the data ranges that will be used
+        let (x_range, y_range) = self.render_points(&mut canvas, x_series, y_series, config)?;
 
-        Ok(canvas.render_colored(config.color.is_some()))
+        // Get base canvas output
+        let canvas_output = canvas.render_colored(config.color.is_some());
+        
+        // Add consistent axis rendering using the unified system
+        let axis_renderer = AxisRenderer::new(canvas.get_width());
+        
+        // Add Y-axis labels using the actual Y-range from the scatter plot
+        let output_with_y_labels = axis_renderer.render_y_axis_labels(
+            &canvas_output, 
+            y_range.0, 
+            y_range.1, 
+            canvas.get_height()
+        );
+        
+        // Add X-axis labels using the actual X-range from the scatter plot
+        let x_labels = axis_renderer.generate_range_labels(x_range.0, x_range.1, 5);
+        let final_output = format!("{}{}", output_with_y_labels, axis_renderer.render_x_axis_labels(&x_labels));
+        
+        Ok(final_output)
     }
 
     fn render_points(
@@ -57,7 +76,7 @@ impl ScatterPlot {
         x_series: &crate::data::Series,
         y_series: &crate::data::Series,
         config: &PlotConfig,
-    ) -> Result<()> {
+    ) -> Result<((f64, f64), (f64, f64))> {
         let x_data = &x_series.data;
         let y_data = &y_series.data;
 
@@ -108,7 +127,8 @@ impl ScatterPlot {
             }
         }
 
-        Ok(())
+        // Return the ranges for axis label generation
+        Ok((final_x_range, final_y_range))
     }
 
     fn plot_point(&self, canvas: &mut Canvas, x: f64, y: f64, symbol: char, color: Option<Color>) {

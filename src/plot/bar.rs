@@ -95,14 +95,14 @@ impl BarChart {
             
             // Y-axis label and tick
             if is_label_row && !is_last_row {
-                output.push_str(&format!("{:>4.0} ┤", y_value));
+                output.push_str(&format!("{:>4.0} ├", y_value));
             } else if is_last_row {
                 output.push_str(&format!("{:>4.0} └", min_val));
                 // Skip to next line immediately for last row - no bars
                 output.push('\n');
                 continue;
             } else {
-                output.push_str("     ┤");
+                output.push_str("     │");
             }
             
             // Draw bars for this row (skip bars on the last row which is reserved for x-axis)

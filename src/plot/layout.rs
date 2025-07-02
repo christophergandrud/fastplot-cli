@@ -72,23 +72,19 @@ impl ElementLayout {
         layout
     }
     
-    /// Calculate layout for histogram bins
-    pub fn for_bins(chart_width: usize, num_bins: usize) -> Self {
-        // Similar to bars but optimize for bins
-        Self::for_bars(chart_width, num_bins)
-    }
     
     /// Calculate layout for axis ticks
     pub fn for_ticks(chart_width: usize, num_ticks: usize) -> Self {
-        // Optimize for ticks (minimal width, consistent spacing)
+        // Reserve column 0 for Y-axis, distribute ticks in the data area (columns 1 to chart_width-1)
+        let data_width = chart_width.saturating_sub(1); // Available width for data
         ElementLayout {
             element_width: 1,
-            spacing: if num_ticks > 1 { 
-                chart_width.saturating_sub(num_ticks) / num_ticks.saturating_sub(1).max(1)
+            spacing: if num_ticks > 1 && data_width > num_ticks { 
+                data_width.saturating_sub(num_ticks) / num_ticks.saturating_sub(1).max(1)
             } else { 
                 0 
             },
-            offset: 0,
+            offset: 1, // Start from column 1 (after Y-axis)
         }
     }
     
@@ -159,17 +155,180 @@ impl BarStyle {
     }
 }
 
-/// Tick mark styles
-#[derive(Debug, Clone, Copy)]
-pub enum TickStyle {
-    Standard, // ┴
+
+/// Unified axis renderer for consistent axis, tick, and label handling
+pub struct AxisRenderer {
+    chart_width: usize,
+    pub y_axis_offset: usize,
 }
 
-impl TickStyle {
-    pub fn get_symbol(&self) -> char {
-        match self {
-            TickStyle::Standard => '┴',
+impl AxisRenderer {
+    pub fn new(chart_width: usize) -> Self {
+        use crate::plot::RenderUtils;
+        Self {
+            chart_width,
+            y_axis_offset: RenderUtils::Y_AXIS_LABEL_WIDTH,
         }
+    }
+
+    /// Render X-axis line with consistent positioning
+    pub fn render_x_axis_line(&self) -> String {
+        let mut result = String::new();
+        
+        // Use consistent Y-axis offset
+        result.push_str(&format!("{:>width$}└", "", width = self.y_axis_offset));
+        
+        // Draw horizontal line
+        for _ in 0..self.chart_width {
+            result.push('─');
+        }
+        result.push('\n');
+        
+        result
+    }
+
+
+    /// Render X-axis labels with consistent positioning and layout
+    pub fn render_x_axis_labels(&self, labels: &[String]) -> String {
+        if labels.is_empty() {
+            return String::new();
+        }
+
+        let mut result = String::new();
+        
+        // Use consistent Y-axis offset
+        result.push_str(&format!("{:>width$} ", "", width = self.y_axis_offset));
+        
+        // Create label layout - use ticks layout for alignment with tick marks
+        let label_layout = ElementLayout::for_ticks(self.chart_width, labels.len());
+        let mut label_line = vec![' '; self.chart_width];
+        
+        // Place labels at tick positions
+        for (i, label) in labels.iter().enumerate() {
+            let position = label_layout.element_position(i);
+            let label_start = position.saturating_sub(label.len() / 2);
+            
+            // Place the label if there's space
+            for (j, ch) in label.chars().enumerate() {
+                if label_start + j < self.chart_width {
+                    label_line[label_start + j] = ch;
+                }
+            }
+        }
+        
+        let label_str: String = label_line.iter().collect();
+        result.push_str(&label_str);
+        result.push('\n');
+        
+        result
+    }
+
+    /// Generate evenly spaced numeric labels for a range
+    pub fn generate_numeric_labels(&self, data_len: usize, num_labels: usize) -> Vec<String> {
+        let effective_labels = num_labels.min(data_len).max(1);
+        let mut labels = Vec::new();
+        
+        for i in 0..effective_labels {
+            let x_index = if data_len > 1 {
+                i * (data_len - 1) / (effective_labels - 1)
+            } else {
+                0
+            };
+            labels.push(x_index.to_string());
+        }
+        
+        labels
+    }
+
+    /// Generate numeric labels for a specific value range (for scatter plots)
+    pub fn generate_range_labels(&self, min_val: f64, max_val: f64, num_labels: usize) -> Vec<String> {
+        let effective_labels = num_labels.max(1);
+        let mut labels = Vec::new();
+        
+        if effective_labels == 1 {
+            labels.push(format!("{:.1}", (min_val + max_val) / 2.0));
+        } else {
+            for i in 0..effective_labels {
+                let ratio = i as f64 / (effective_labels - 1) as f64;
+                let value = min_val + ratio * (max_val - min_val);
+                labels.push(format!("{:.1}", value));
+            }
+        }
+        
+        labels
+    }
+
+    /// Render Y-axis labels for scatter plots and other Canvas-based plots
+    pub fn render_y_axis_labels(&self, canvas_output: &str, y_min: f64, y_max: f64, _chart_height: usize) -> String {
+        let lines: Vec<&str> = canvas_output.lines().collect();
+        let mut result = String::new();
+        
+        // Separate title lines from chart content
+        let mut title_lines = Vec::new();
+        let mut chart_lines = Vec::new();
+        let mut in_chart = false;
+        
+        for line in lines.iter() {
+            if line.contains('│') || line.contains('├') || line.contains('└') {
+                in_chart = true;
+            }
+            
+            if in_chart {
+                chart_lines.push(*line);
+            } else if !line.trim().is_empty() {
+                title_lines.push(*line);
+            }
+        }
+        
+        // Add title lines as-is
+        for title_line in &title_lines {
+            result.push_str(title_line);
+            result.push('\n');
+        }
+        if !title_lines.is_empty() {
+            result.push('\n'); // Add spacing after title
+        }
+        
+        // Process chart lines with Y-axis labels
+        let effective_height = chart_lines.len();
+        
+        for (i, line) in chart_lines.iter().enumerate() {
+            // Calculate Y value for this row (excluding the bottom axis line)
+            let chart_rows = effective_height.saturating_sub(1).max(1); // Exclude bottom axis
+            let y_ratio = if chart_rows > 1 && i < chart_rows {
+                1.0 - (i as f64 / (chart_rows - 1) as f64)
+            } else {
+                0.0 // Bottom axis line
+            };
+            let y_value = y_min + y_ratio * (y_max - y_min);
+            
+            // Add Y-axis label every few rows, but not on the bottom axis line
+            if line.contains('└') {
+                // Bottom axis line - use consistent spacing
+                result.push_str(&format!("{:>6} ", ""));
+            } else if i % 3 == 0 {
+                result.push_str(&format!("{:>6.1} ", y_value));
+            } else {
+                result.push_str("       ");
+            }
+            
+            result.push_str(line);
+            result.push('\n');
+        }
+        
+        result
+    }
+
+    /// Generate bin center labels for histograms
+    pub fn generate_bin_labels(&self, bin_edges: &[f64]) -> Vec<String> {
+        let mut labels = Vec::new();
+        
+        for i in 0..bin_edges.len().saturating_sub(1) {
+            let bin_center = (bin_edges[i] + bin_edges[i + 1]) / 2.0;
+            labels.push(format!("{:.0}", bin_center));
+        }
+        
+        labels
     }
 }
 

@@ -2,7 +2,7 @@
 
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::{Canvas, ColorUtils, DataUtils};
-use crate::plot::ElementLayout;
+use crate::plot::AxisRenderer;
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -213,35 +213,13 @@ impl Histogram {
             }
         }
         
-        // Add X-axis line
-        result.push_str("         ");
-        for _ in 0..canvas.get_width() {
-            result.push('─');
-        }
-        result.push('\n');
+        // Add X-axis with unified axis renderer
+        let axis_renderer = AxisRenderer::new(canvas.get_width());
+        result.push_str(&axis_renderer.render_x_axis_line());
         
-        // Add X-axis labels (bin centers) using ElementLayout for consistent positioning
-        result.push_str("         ");
-        let label_layout = ElementLayout::for_bins(canvas.get_width(), hist_data.bin_values.len());
-        let mut label_line = vec![' '; canvas.get_width()];
-        
-        for i in 0..hist_data.bin_values.len() {
-            let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
-            let label = format!("{:.0}", bin_center);
-            let position = label_layout.element_position(i) + label_layout.element_width / 2;
-            let label_start = position.saturating_sub(label.len() / 2);
-            
-            // Place the label if there's space
-            for (j, ch) in label.chars().enumerate() {
-                if label_start + j < canvas.get_width() {
-                    label_line[label_start + j] = ch;
-                }
-            }
-        }
-        
-        let label_str: String = label_line.iter().collect();
-        result.push_str(&label_str);
-        result.push('\n');
+        // Add X-axis labels using unified renderer
+        let labels = axis_renderer.generate_bin_labels(&hist_data.bin_edges);
+        result.push_str(&axis_renderer.render_x_axis_labels(&labels));
         
         // Add x-label if present
         if let Some(xlabel) = canvas.get_xlabel() {
@@ -297,35 +275,13 @@ impl Histogram {
             }
         }
         
-        // Add X-axis line
-        result.push_str("         ");
-        for _ in 0..canvas.get_width() {
-            result.push('─');
-        }
-        result.push('\n');
+        // Add X-axis with unified axis renderer
+        let axis_renderer = AxisRenderer::new(canvas.get_width());
+        result.push_str(&axis_renderer.render_x_axis_line());
         
-        // Add X-axis labels (bin centers) using ElementLayout for consistent positioning
-        result.push_str("         ");
-        let label_layout = ElementLayout::for_bins(canvas.get_width(), hist_data.bin_values.len());
-        let mut label_line = vec![' '; canvas.get_width()];
-        
-        for i in 0..hist_data.bin_values.len() {
-            let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
-            let label = format!("{:.0}", bin_center);
-            let position = label_layout.element_position(i) + label_layout.element_width / 2;
-            let label_start = position.saturating_sub(label.len() / 2);
-            
-            // Place the label if there's space
-            for (j, ch) in label.chars().enumerate() {
-                if label_start + j < canvas.get_width() {
-                    label_line[label_start + j] = ch;
-                }
-            }
-        }
-        
-        let label_str: String = label_line.iter().collect();
-        result.push_str(&label_str);
-        result.push('\n');
+        // Add X-axis labels using unified renderer
+        let labels = axis_renderer.generate_bin_labels(&hist_data.bin_edges);
+        result.push_str(&axis_renderer.render_x_axis_labels(&labels));
         
         // Add x-label if present
         if let Some(xlabel) = canvas.get_xlabel() {

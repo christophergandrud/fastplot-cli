@@ -298,7 +298,9 @@ impl Canvas {
 
     fn data_to_canvas_x(&self, x: f64) -> usize {
         let normalized = (x - self.x_range.0) / (self.x_range.1 - self.x_range.0);
-        ((normalized * (self.width as f64 - 1.0)).round() as usize).min(self.width - 1)
+        // Reserve column 0 for Y-axis, map data to columns 1 through width-1
+        let canvas_x = 1 + ((normalized * (self.width as f64 - 2.0)).round() as usize);
+        canvas_x.min(self.width - 1)
     }
 
     fn data_to_canvas_y(&self, y: f64) -> usize {
