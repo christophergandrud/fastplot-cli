@@ -2,6 +2,7 @@
 
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::{Canvas, ColorUtils, DataUtils};
+use crate::plot::ElementLayout;
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
@@ -219,17 +220,27 @@ impl Histogram {
         }
         result.push('\n');
         
-        // Add X-axis labels (bin centers)
+        // Add X-axis labels (bin centers) using ElementLayout for consistent positioning
         result.push_str("         ");
+        let label_layout = ElementLayout::for_bins(canvas.get_width(), hist_data.bin_values.len());
+        let mut label_line = vec![' '; canvas.get_width()];
+        
         for i in 0..hist_data.bin_values.len() {
             let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
             let label = format!("{:.0}", bin_center);
-            let bin_width = canvas.get_width() / hist_data.bin_values.len();
-            let padding = bin_width.saturating_sub(label.len()) / 2;
-            result.push_str(&" ".repeat(padding));
-            result.push_str(&label);
-            result.push_str(&" ".repeat(bin_width - padding - label.len()));
+            let position = label_layout.element_position(i) + label_layout.element_width / 2;
+            let label_start = position.saturating_sub(label.len() / 2);
+            
+            // Place the label if there's space
+            for (j, ch) in label.chars().enumerate() {
+                if label_start + j < canvas.get_width() {
+                    label_line[label_start + j] = ch;
+                }
+            }
         }
+        
+        let label_str: String = label_line.iter().collect();
+        result.push_str(&label_str);
         result.push('\n');
         
         // Add x-label if present
@@ -293,17 +304,27 @@ impl Histogram {
         }
         result.push('\n');
         
-        // Add X-axis labels (bin centers)
+        // Add X-axis labels (bin centers) using ElementLayout for consistent positioning
         result.push_str("         ");
+        let label_layout = ElementLayout::for_bins(canvas.get_width(), hist_data.bin_values.len());
+        let mut label_line = vec![' '; canvas.get_width()];
+        
         for i in 0..hist_data.bin_values.len() {
             let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
             let label = format!("{:.0}", bin_center);
-            let bin_width = canvas.get_width() / hist_data.bin_values.len();
-            let padding = bin_width.saturating_sub(label.len()) / 2;
-            result.push_str(&" ".repeat(padding));
-            result.push_str(&label);
-            result.push_str(&" ".repeat(bin_width - padding - label.len()));
+            let position = label_layout.element_position(i) + label_layout.element_width / 2;
+            let label_start = position.saturating_sub(label.len() / 2);
+            
+            // Place the label if there's space
+            for (j, ch) in label.chars().enumerate() {
+                if label_start + j < canvas.get_width() {
+                    label_line[label_start + j] = ch;
+                }
+            }
         }
+        
+        let label_str: String = label_line.iter().collect();
+        result.push_str(&label_str);
         result.push('\n');
         
         // Add x-label if present

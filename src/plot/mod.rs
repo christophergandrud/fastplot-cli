@@ -5,6 +5,7 @@ pub mod scatter;
 pub mod histogram;
 pub mod density;
 pub mod boxplot;
+pub mod layout;
 
 // Shared utility modules
 pub mod color_utils;
@@ -33,6 +34,11 @@ pub use boxplot::{NotchedBoxPlot, Orientation, OutlierMethod};
 pub use color_utils::ColorUtils;
 pub use data_utils::DataUtils;
 pub use render_utils::RenderUtils;
+
+// Export layout system
+pub use layout::{
+    ElementLayout, BarStyle, TickStyle
+};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]

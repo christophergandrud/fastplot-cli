@@ -1,5 +1,6 @@
 use crate::data::{DataFrame, PlotConfig};
 use crate::plot::{ColorUtils, DataUtils, RenderUtils};
+use crate::plot::{ElementLayout, TickStyle};
 use anyhow::{Result, anyhow};
 
 pub struct LinePlot {
@@ -126,20 +127,26 @@ impl LinePlot {
             output.push('\n');
         }
         
-        // X-axis with properly aligned tick marks
+        // X-axis with properly aligned tick marks using ElementLayout
         output.push_str("     └");
-        for i in 0..chart_width {
-            if i > 0 && (i * 4) % chart_width == 0 {
-                output.push('┬');
-            } else {
-                output.push('─');
+        let tick_layout = ElementLayout::for_ticks(chart_width, 5); // 5 tick marks
+        let mut x_axis = vec!['─'; chart_width];
+        
+        // Add tick marks at calculated positions
+        for i in 0..5 {
+            let tick_pos = tick_layout.element_position(i);
+            if tick_pos < chart_width {
+                x_axis[tick_pos] = TickStyle::Standard.get_symbol();
             }
         }
+        
+        let x_axis_str: String = x_axis.iter().collect();
+        output.push_str(&x_axis_str);
         output.push('\n');
         
-        // X-axis labels with proper positioning and overlap prevention
+        // X-axis labels with proper positioning using ElementLayout
         if chart_width > 20 {
-            let x_labels = self.create_axis_labels(data.len(), chart_width);
+            let x_labels = self.create_axis_labels_with_layout(data.len(), chart_width);
             output.push_str("      ");
             output.push_str(&x_labels);
             output.push('\n');
@@ -150,7 +157,8 @@ impl LinePlot {
 
 
 
-    fn create_axis_labels(&self, data_len: usize, chart_width: usize) -> String {
+    
+    fn create_axis_labels_with_layout(&self, data_len: usize, chart_width: usize) -> String {
         let mut axis_line = vec![' '; chart_width];
         let num_labels = 5.min(data_len);
         
@@ -158,32 +166,27 @@ impl LinePlot {
             return axis_line.into_iter().collect();
         }
         
-        // Calculate label positions and values
-        let mut labels = Vec::new();
+        // Use ElementLayout for consistent positioning
+        let label_layout = ElementLayout::for_ticks(chart_width, num_labels);
+        
+        // Calculate label values and positions using the layout
         for i in 0..num_labels {
             let x_index = if data_len > 1 { 
                 i * (data_len - 1) / (num_labels - 1)
             } else { 
                 0 
             };
-            let normalized = if num_labels > 1 {
-                i as f64 / (num_labels - 1) as f64
-            } else {
-                0.5
-            };
-            let position = (normalized * (chart_width - 1) as f64).round() as usize;
-            labels.push((x_index.to_string(), position));
-        }
-        
-        // Place labels with overlap prevention
-        for (label, pos) in labels {
-            let label_start = pos.saturating_sub(label.len() / 2);
+            let position = label_layout.element_position(i);
+            let label = x_index.to_string();
+            
+            // Center the label at the calculated position
+            let label_start = position.saturating_sub(label.len() / 2);
             let label_end = (label_start + label.len()).min(chart_width);
             
             // Check if there's enough space for the label
             let mut can_place = true;
-            for i in label_start..label_end {
-                if axis_line[i] != ' ' {
+            for j in label_start..label_end {
+                if axis_line[j] != ' ' {
                     can_place = false;
                     break;
                 }
@@ -191,9 +194,9 @@ impl LinePlot {
             
             // Place the label if there's space
             if can_place {
-                for (i, ch) in label.chars().enumerate() {
-                    if label_start + i < chart_width {
-                        axis_line[label_start + i] = ch;
+                for (j, ch) in label.chars().enumerate() {
+                    if label_start + j < chart_width {
+                        axis_line[label_start + j] = ch;
                     }
                 }
             }
