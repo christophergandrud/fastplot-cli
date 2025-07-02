@@ -3,6 +3,144 @@ use crate::plot::{Canvas, ColorUtils, DataUtils, RenderUtils};
 use anyhow::{Result, anyhow};
 use crossterm::style::Color;
 
+/// Dynamic bar chart layout calculator
+#[derive(Debug, Clone)]
+struct BarLayout {
+    bar_width: usize,
+    spacing: usize,
+    offset: usize,
+}
+
+impl BarLayout {
+    /// Calculate optimal layout for given constraints
+    fn calculate(chart_width: usize, num_bars: usize) -> Self {
+        const MIN_BAR_WIDTH: usize = 1;
+        const MIN_SPACING: usize = 0;
+        const PREFERRED_BAR_WIDTH: usize = 2;
+        const PREFERRED_SPACING: usize = 1;
+        
+        if num_bars == 0 {
+            return BarLayout {
+                bar_width: PREFERRED_BAR_WIDTH,
+                spacing: PREFERRED_SPACING,
+                offset: 1,
+            };
+        }
+        
+        // Start with preferred layout
+        let mut layout = BarLayout {
+            bar_width: PREFERRED_BAR_WIDTH,
+            spacing: PREFERRED_SPACING,
+            offset: 1, // Initial offset for alignment
+        };
+        
+        // Check if preferred layout fits
+        let required = layout.total_width(num_bars);
+        
+        if required > chart_width {
+            // Try with minimum spacing first
+            layout.spacing = MIN_SPACING;
+            let required = layout.total_width(num_bars);
+            
+            if required > chart_width {
+                // Fall back to minimum bar width
+                layout.bar_width = MIN_BAR_WIDTH;
+                
+                // Calculate remaining space for gaps
+                let bars_width = num_bars * MIN_BAR_WIDTH;
+                if bars_width + layout.offset < chart_width {
+                    let available_for_gaps = chart_width - bars_width - layout.offset;
+                    let num_gaps = num_bars.saturating_sub(1).max(1);
+                    layout.spacing = available_for_gaps / num_gaps;
+                }
+            }
+        } else {
+            // We have extra space, but keep spacing modest
+            let extra_space = chart_width - required;
+            let num_gaps = num_bars.saturating_sub(1).max(1);
+            
+            // Only add minimal extra spacing, don't go overboard
+            let max_extra_spacing = 1; // Limit extra spacing to 1 additional character
+            let extra_spacing = (extra_space / num_gaps).min(max_extra_spacing);
+            layout.spacing += extra_spacing;
+            
+            // Center the chart with remaining space, but don't go overboard
+            let remaining_space = extra_space - (extra_spacing * num_gaps);
+            let max_additional_offset = 3; // Limit how much we center
+            let additional_offset = (remaining_space / 2).min(max_additional_offset);
+            layout.offset += additional_offset;
+        }
+        
+        layout
+    }
+    
+    /// Calculate total width needed for this layout
+    fn total_width(&self, num_bars: usize) -> usize {
+        if num_bars == 0 {
+            return 0;
+        }
+        self.offset + (num_bars * self.bar_width) + 
+        (num_bars.saturating_sub(1) * self.spacing)
+    }
+    
+    /// Get x-position for a specific bar
+    fn bar_position(&self, index: usize) -> usize {
+        self.offset + (index * (self.bar_width + self.spacing))
+    }
+    
+    /// Maximum bars that can fit with this layout
+    fn max_bars_for_width(&self, width: usize) -> usize {
+        if self.bar_width + self.spacing == 0 {
+            return 0;
+        }
+        
+        let available = width.saturating_sub(self.offset);
+        // Account for the fact that the last bar doesn't need spacing after it
+        (available + self.spacing) / (self.bar_width + self.spacing)
+    }
+}
+
+/// Different bar representations based on available width
+#[derive(Debug, Clone, Copy)]
+enum BarStyle {
+    Wide,     // ██ (2 chars)
+    Normal,   // █ (1 char)  
+    #[allow(dead_code)]
+    Thin,     // ▌ (half block) - reserved for future use
+    #[allow(dead_code)]
+    Minimal,  // | (pipe) - reserved for future use
+}
+
+impl BarStyle {
+    fn from_width(width: usize) -> Self {
+        match width {
+            0 => BarStyle::Minimal,
+            1 => BarStyle::Normal,
+            2 => BarStyle::Wide,
+            _ => BarStyle::Wide,
+        }
+    }
+    
+    fn get_symbol(&self) -> char {
+        match self {
+            BarStyle::Wide => '█',
+            BarStyle::Normal => '█',
+            BarStyle::Thin => '▌',
+            BarStyle::Minimal => '|',
+        }
+    }
+    
+    #[allow(dead_code)]
+    fn char_count(&self) -> usize {
+        match self {
+            BarStyle::Wide => 2,
+            BarStyle::Normal => 1,
+            BarStyle::Thin => 1,
+            BarStyle::Minimal => 1,
+        }
+    }
+}
+
 pub struct BarChart {
     horizontal: bool,
 }
@@ -39,7 +177,6 @@ impl BarChart {
 
     fn render_vertical_bars_ascii(&self, series: &crate::data::Series, config: &PlotConfig) -> Result<String> {
         let data = &series.data;
-        let symbol = config.symbol.unwrap_or('█');
         
         // Validate and analyze data
         RenderUtils::validate_plot_data(data, "bar chart")?;
@@ -60,17 +197,21 @@ impl BarChart {
         let y_range = max_val - min_val;
         let label_step = 2; // Show labels every 2 rows
         
-        // Calculate bar positions
-        // Each bar is 2 characters wide
+        // Calculate dynamic layout
+        let layout = BarLayout::calculate(chart_width, data.len());
+        let max_displayable = layout.max_bars_for_width(chart_width);
         
-        // Account for actual spacing: first bar needs 1 offset + 2 width = 3
-        // Each additional bar needs 2 spaces + 2 width = 4
-        let max_bars = if chart_width >= 3 {
-            1 + (chart_width - 3) / 4
+        // Check if we need to truncate data
+        let display_data = if data.len() > max_displayable {
+            eprintln!("Warning: Showing only first {} of {} data points", 
+                      max_displayable, data.len());
+            &data[..max_displayable]
         } else {
-            0
+            data
         };
-        let num_bars = data.len().min(max_bars);
+        
+        let num_bars = display_data.len();
+        let bar_style = BarStyle::from_width(layout.bar_width);
         
         let mut output = String::new();
         
@@ -101,76 +242,93 @@ impl BarChart {
             
             // Draw bars for this row (skip bars on the last row which is reserved for x-axis)
             if !is_last_row {
-                for (i, &value) in data.iter().enumerate().take(num_bars) {
-                    // Add spacing to center bars over tick marks
-                    if i == 0 {
-                        output.push(' '); // Single space offset for first bar
+                // Create a line buffer for this row
+                let mut line = vec![' '; chart_width];
+                let row_threshold = 1.0 - (row as f64 / (chart_height - 1) as f64);
+                
+                for (i, &value) in display_data.iter().enumerate() {
+                    let normalized = if y_range > 0.0 {
+                        (value - min_val) / y_range
                     } else {
-                        output.push_str("  "); // Two spaces between bars to center them
-                    }
+                        0.5
+                    };
                     
-                    // Calculate if this bar should be filled at this height
-                    let bar_height_ratio = (value - min_val) / y_range;
-                    let bar_fill_threshold = 1.0 - (row as f64 / (chart_height - 1) as f64);
-                    
-                    // Use > instead of >= and ensure bars show at least one row at the bottom
-                    if bar_height_ratio > bar_fill_threshold || 
-                       (bar_height_ratio == 0.0 && row == chart_height - 2) {
-                        // Fill this part of the bar
-                        let symbols = format!("{}{}", symbol, symbol);
-                        if let Some(color_name) = &config.color {
-                            let colored_symbols = ColorUtils::apply_color_string(&symbols, color_name);
-                            output.push_str(&colored_symbols);
-                        } else {
-                            output.push_str(&symbols);
+                    // Check if this bar should be filled at this height
+                    if normalized >= row_threshold || 
+                       (normalized == 0.0 && row == chart_height - 2) {
+                        let x_pos = layout.bar_position(i);
+                        let bar_symbol = bar_style.get_symbol();
+                        
+                        // Draw the bar at this position
+                        for j in 0..layout.bar_width {
+                            if x_pos + j < chart_width {
+                                line[x_pos + j] = bar_symbol;
+                            }
                         }
-                    } else {
-                        // Empty space above the bar
-                        output.push_str("  ");
                     }
+                }
+                
+                // Apply color if specified and convert to string
+                let line_str: String = line.iter().collect();
+                if let Some(color_name) = &config.color {
+                    let colored_line = ColorUtils::apply_color_string(&line_str, color_name);
+                    output.push_str(&colored_line);
+                } else {
+                    output.push_str(&line_str);
                 }
             }
             
             output.push('\n');
         }
         
-        // X-axis base line
+        // X-axis base line with dynamic positioning
         output.push_str("     ");
+        let mut x_axis = vec![' '; chart_width];
+        
+        // Draw horizontal line and tick marks
+        let start_pos = layout.offset;
+        let end_pos = if num_bars > 0 {
+            layout.bar_position(num_bars - 1) + layout.bar_width
+        } else {
+            start_pos
+        };
+        
+        // Fill with horizontal line
+        for i in start_pos..end_pos.min(chart_width) {
+            x_axis[i] = '─';
+        }
+        
+        // Add tick marks under bar centers
         for i in 0..num_bars {
-            if i == 0 {
-                output.push_str("─┴"); // First tick positioned under center of first bar
-                if i < num_bars - 1 {
-                    output.push_str("──"); // Fill space to next tick
-                }
-            } else {
-                output.push_str("┴"); // Tick under center of bar
-                if i < num_bars - 1 {
-                    output.push_str("───"); // Fill space to next tick (3 chars)
-                }
+            let tick_pos = layout.bar_position(i) + layout.bar_width / 2;
+            if tick_pos < chart_width {
+                x_axis[tick_pos] = '┴';
             }
         }
-        // Add line under the last bar
-        if num_bars > 0 {
-            output.push_str("──");
-        }
+        
+        let x_axis_str: String = x_axis.iter().collect();
+        output.push_str(&x_axis_str);
         output.push('\n');
         
-        // X-axis labels
+        // X-axis labels with dynamic positioning
         if num_bars <= 15 {
             output.push_str("     ");
+            let mut labels = vec![' '; chart_width];
+            
             for i in 0..num_bars {
-                if i == 0 {
-                    output.push_str(&format!(" {}", i + 1)); // Position first label under tick
-                    if i < num_bars - 1 {
-                        output.push_str("  "); // Space to next label
-                    }
-                } else {
-                    output.push_str(&format!("  {}", i + 1)); // Position subsequent labels under ticks
-                    if i < num_bars - 1 {
-                        output.push_str(" "); // Space to next label
+                let label = format!("{}", i + 1);
+                let label_center = layout.bar_position(i) + layout.bar_width / 2;
+                let label_start = label_center.saturating_sub(label.len() / 2);
+                
+                for (j, ch) in label.chars().enumerate() {
+                    if label_start + j < chart_width {
+                        labels[label_start + j] = ch;
                     }
                 }
             }
+            
+            let labels_str: String = labels.iter().collect();
+            output.push_str(&labels_str);
             output.push('\n');
         }
 
