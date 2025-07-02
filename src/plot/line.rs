@@ -49,9 +49,9 @@ impl LinePlot {
         // Calculate data range with utilities
         let (min_val, max_val) = DataUtils::calculate_range(data)?;
 
-        // Calculate chart dimensions
-        let chart_height = config.height.saturating_sub(5);
-        let chart_width = config.width.saturating_sub(10);
+        // Calculate chart dimensions using consistent layout constants
+        let chart_height = config.height.saturating_sub(RenderUtils::total_vertical_overhead());
+        let chart_width = config.width.saturating_sub(RenderUtils::Y_AXIS_LABEL_WIDTH);
         
         // Add some padding to the Y range
         let y_range = max_val - min_val;

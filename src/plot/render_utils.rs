@@ -8,6 +8,23 @@ use anyhow::Result;
 /// Rendering utilities for common plot operations
 pub struct RenderUtils;
 
+/// Layout constants for consistent spacing across all plot types
+impl RenderUtils {
+    /// Space to reserve for title (title + blank line)
+    pub const TITLE_SPACE: usize = 2;
+    /// Space to reserve for X-axis line and labels
+    pub const X_AXIS_SPACE: usize = 2;
+    /// Space to reserve for Y-axis labels
+    pub const Y_AXIS_LABEL_WIDTH: usize = 10;
+    /// Minimum padding for chart area
+    pub const MIN_PADDING: usize = 1;
+    
+    /// Calculate total vertical space needed for non-chart elements
+    pub const fn total_vertical_overhead() -> usize {
+        Self::TITLE_SPACE + Self::X_AXIS_SPACE + Self::MIN_PADDING
+    }
+}
+
 #[allow(dead_code)]
 impl RenderUtils {
     /// Set up a canvas with proper configuration

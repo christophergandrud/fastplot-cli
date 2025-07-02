@@ -52,9 +52,9 @@ impl BarChart {
         let (min_val_orig, max_val) = DataUtils::calculate_range(data)?;
         let min_val = min_val_orig.min(0.0); // Ensure we include zero for bar charts
 
-        // Calculate chart dimensions
-        let chart_height = config.height.saturating_sub(5); // Reserve space for title and axis
-        let chart_width = config.width.saturating_sub(10);  // Reserve space for Y-axis labels
+        // Calculate chart dimensions using consistent layout constants
+        let chart_height = config.height.saturating_sub(RenderUtils::total_vertical_overhead());
+        let chart_width = config.width.saturating_sub(RenderUtils::Y_AXIS_LABEL_WIDTH);
         
         // Create clean Y-axis labels (round numbers)
         let y_range = max_val - min_val;
@@ -86,32 +86,42 @@ impl BarChart {
                 output.push_str(&format!("{:>4.0} ┤", y_value));
             } else if is_last_row {
                 output.push_str(&format!("{:>4.0} └", min_val));
+                // Skip to next line immediately for last row - no bars
+                output.push('\n');
+                continue;
             } else {
                 output.push_str("     ┤");
             }
             
-            // Draw bars for this row
-            for (i, &value) in data.iter().enumerate().take(num_bars) {
-                if i > 0 {
-                    output.push(' '); // Single space between bars
-                }
-                
-                // Calculate if this bar should be filled at this height
-                let bar_height_ratio = (value - min_val) / y_range;
-                let bar_fill_threshold = 1.0 - (row as f64 / chart_height as f64);
-                
-                if bar_height_ratio >= bar_fill_threshold {
-                    // Fill this part of the bar
-                    let symbols = format!("{}{}", symbol, symbol);
-                    if let Some(color_name) = &config.color {
-                        let colored_symbols = ColorUtils::apply_color_string(&symbols, color_name);
-                        output.push_str(&colored_symbols);
+            // Draw bars for this row (skip bars on the last row which is reserved for x-axis)
+            if !is_last_row {
+                for (i, &value) in data.iter().enumerate().take(num_bars) {
+                    // Add spacing to center bars over tick marks
+                    if i == 0 {
+                        output.push(' '); // Single space offset for first bar
                     } else {
-                        output.push_str(&symbols);
+                        output.push_str("  "); // Two spaces between bars to center them
                     }
-                } else {
-                    // Empty space above the bar
-                    output.push_str("  ");
+                    
+                    // Calculate if this bar should be filled at this height
+                    let bar_height_ratio = (value - min_val) / y_range;
+                    let bar_fill_threshold = 1.0 - (row as f64 / (chart_height - 1) as f64);
+                    
+                    // Use > instead of >= and ensure bars show at least one row at the bottom
+                    if bar_height_ratio > bar_fill_threshold || 
+                       (bar_height_ratio == 0.0 && row == chart_height - 2) {
+                        // Fill this part of the bar
+                        let symbols = format!("{}{}", symbol, symbol);
+                        if let Some(color_name) = &config.color {
+                            let colored_symbols = ColorUtils::apply_color_string(&symbols, color_name);
+                            output.push_str(&colored_symbols);
+                        } else {
+                            output.push_str(&symbols);
+                        }
+                    } else {
+                        // Empty space above the bar
+                        output.push_str("  ");
+                    }
                 }
             }
             
@@ -122,23 +132,20 @@ impl BarChart {
         output.push_str("     ");
         for i in 0..num_bars {
             if i == 0 {
-                output.push('─');
+                output.push_str("─┴");
             } else {
-                output.push('┴');
-            }
-            output.push('─');
-            if i < num_bars - 1 {
-                output.push('─');
+                output.push_str("──┴");
             }
         }
-        output.push_str("─\n");
+        output.push('─');
+        output.push('\n');
         
         // X-axis labels
         if num_bars <= 15 {
             output.push_str("     ");
             for i in 0..num_bars {
                 if i == 0 {
-                    output.push_str(&format!("{}", i + 1));
+                    output.push_str(&format!(" {}", i + 1));
                 } else {
                     output.push_str(&format!("  {}", i + 1));
                 }
