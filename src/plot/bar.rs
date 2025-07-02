@@ -61,10 +61,16 @@ impl BarChart {
         let label_step = 2; // Show labels every 2 rows
         
         // Calculate bar positions
-        let bar_width = 2; // Each bar is 2 characters wide
-        let bar_spacing = 1; // Single space between bars  
-        let total_bar_space = bar_width + bar_spacing;
-        let num_bars = data.len().min(chart_width / total_bar_space);
+        // Each bar is 2 characters wide
+        
+        // Account for actual spacing: first bar needs 1 offset + 2 width = 3
+        // Each additional bar needs 2 spaces + 2 width = 4
+        let max_bars = if chart_width >= 3 {
+            1 + (chart_width - 3) / 4
+        } else {
+            0
+        };
+        let num_bars = data.len().min(max_bars);
         
         let mut output = String::new();
         
@@ -132,12 +138,21 @@ impl BarChart {
         output.push_str("     ");
         for i in 0..num_bars {
             if i == 0 {
-                output.push_str("─┴");
+                output.push_str("─┴"); // First tick positioned under center of first bar
+                if i < num_bars - 1 {
+                    output.push_str("──"); // Fill space to next tick
+                }
             } else {
-                output.push_str("──┴");
+                output.push_str("┴"); // Tick under center of bar
+                if i < num_bars - 1 {
+                    output.push_str("───"); // Fill space to next tick (3 chars)
+                }
             }
         }
-        output.push('─');
+        // Add line under the last bar
+        if num_bars > 0 {
+            output.push_str("──");
+        }
         output.push('\n');
         
         // X-axis labels
@@ -145,9 +160,15 @@ impl BarChart {
             output.push_str("     ");
             for i in 0..num_bars {
                 if i == 0 {
-                    output.push_str(&format!(" {}", i + 1));
+                    output.push_str(&format!(" {}", i + 1)); // Position first label under tick
+                    if i < num_bars - 1 {
+                        output.push_str("  "); // Space to next label
+                    }
                 } else {
-                    output.push_str(&format!("  {}", i + 1));
+                    output.push_str(&format!("  {}", i + 1)); // Position subsequent labels under ticks
+                    if i < num_bars - 1 {
+                        output.push_str(" "); // Space to next label
+                    }
                 }
             }
             output.push('\n');
