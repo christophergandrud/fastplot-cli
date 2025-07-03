@@ -61,19 +61,8 @@ impl BarChart {
         // Create clean Y-axis labels (round numbers)
         let y_range = max_val - min_val;
         
-        // Calculate smart Y-axis labeling to avoid duplicates
+        // Calculate smart Y-axis labeling with evenly spaced visual intervals
         let target_label_count = 5; // Aim for ~5 labels
-        let label_interval = if y_range > 0.0 {
-            // Find a nice round number for the interval
-            let raw_interval = y_range / target_label_count as f64;
-            if raw_interval >= 1.0 {
-                raw_interval.ceil()
-            } else {
-                1.0
-            }
-        } else {
-            1.0
-        };
         
         // Calculate dynamic layout using new layout system
         let layout = ElementLayout::for_bars(chart_width, data.len());
@@ -98,34 +87,32 @@ impl BarChart {
             output.push_str(&format!("{:^width$}\n\n", title, width = config.width));
         }
 
+        // Calculate evenly spaced label positions for clean visual spacing
+        let label_rows = (0..target_label_count)
+            .map(|i| (i * (chart_height - 1)) / (target_label_count - 1).max(1))
+            .collect::<Vec<_>>();
+        
         // Build the chart from top to bottom
-        let mut last_shown_label = f64::INFINITY; // Track last shown label to avoid duplicates
+        let mut shown_labels = std::collections::HashSet::new();
         
         for row in 0..chart_height {
             let is_last_row = row == chart_height - 1;
             
             // Calculate Y value for this row
-            let y_value = max_val - (row as f64 / chart_height as f64) * y_range;
-            let rounded_y = y_value.round();
+            let y_value = max_val - (row as f64 / (chart_height - 1) as f64) * y_range;
+            let rounded_y = y_value.round() as i32;
             
-            // Determine if we should show a label at this row
-            let should_show_label = if is_last_row {
-                false // Don't show label on last row, it will be handled separately
-            } else {
-                // Show label if it's a multiple of our interval and we haven't shown it recently
-                rounded_y >= min_val && 
-                rounded_y <= max_val &&
-                (rounded_y % label_interval).abs() < 0.1 &&
-                (last_shown_label - rounded_y).abs() >= label_interval * 0.9 &&
-                (rounded_y - min_val.round()).abs() > 0.1 // Don't duplicate the bottom label
-            };
+            // Check if this row should have a label (evenly spaced and not duplicate)
+            let should_show_label = label_rows.contains(&row) && 
+                                    !is_last_row && 
+                                    !shown_labels.contains(&rounded_y);
             
             // Y-axis label and tick
-            if should_show_label && !is_last_row {
-                output.push_str(&format!("{:>4.0} ├", rounded_y));
-                last_shown_label = rounded_y;
+            if should_show_label {
+                output.push_str(&format!("{:>4} ├", rounded_y));
+                shown_labels.insert(rounded_y);
             } else if is_last_row {
-                output.push_str(&format!("{:>4.0} └", min_val.round()));
+                output.push_str(&format!("{:>4} └", min_val.round() as i32));
                 // Skip to next line immediately for last row - no bars
                 output.push('\n');
                 continue;
