@@ -61,9 +61,6 @@ impl BarChart {
         // Create clean Y-axis labels (round numbers)
         let y_range = max_val - min_val;
         
-        // Calculate smart Y-axis labeling with evenly spaced visual intervals
-        let target_label_count = 5; // Aim for ~5 labels
-        
         // Calculate dynamic layout using new layout system
         let layout = ElementLayout::for_bars(chart_width, data.len());
         let max_displayable = layout.max_elements_for_width(chart_width);
@@ -87,32 +84,53 @@ impl BarChart {
             output.push_str(&format!("{:^width$}\n\n", title, width = config.width));
         }
 
-        // Calculate evenly spaced label positions for clean visual spacing
-        let label_rows = (0..target_label_count)
-            .map(|i| (i * (chart_height - 1)) / (target_label_count - 1).max(1))
-            .collect::<Vec<_>>();
+        // Calculate nice Y-axis label values with even intervals
+        let target_labels = 4; // Number of labels between min and max (excluding endpoints)
+        let nice_interval = if y_range > 0.0 {
+            let raw_interval = y_range / target_labels as f64;
+            // Round to nice numbers (1, 2, 5, 10, 20, 50, etc.)
+            let magnitude = 10_f64.powf(raw_interval.log10().floor());
+            let normalized = raw_interval / magnitude;
+            let nice_normalized = if normalized <= 1.0 { 1.0 }
+                                 else if normalized <= 2.0 { 2.0 }
+                                 else if normalized <= 5.0 { 5.0 }
+                                 else { 10.0 };
+            nice_normalized * magnitude
+        } else {
+            1.0
+        };
+        
+        // Generate label values from max down to min
+        let mut label_values = Vec::new();
+        let mut current = (max_val / nice_interval).ceil() * nice_interval;
+        while current >= min_val - nice_interval * 0.1 {
+            if current <= max_val + nice_interval * 0.1 {
+                label_values.push(current);
+            }
+            current -= nice_interval;
+        }
         
         // Build the chart from top to bottom
-        let mut shown_labels = std::collections::HashSet::new();
-        
         for row in 0..chart_height {
             let is_last_row = row == chart_height - 1;
             
-            // Calculate Y value for this row
-            let y_value = max_val - (row as f64 / (chart_height - 1) as f64) * y_range;
-            let rounded_y = y_value.round() as i32;
             
-            // Check if this row should have a label (evenly spaced and not duplicate)
-            let should_show_label = label_rows.contains(&row) && 
-                                    !is_last_row && 
-                                    !shown_labels.contains(&rounded_y);
+            // Check if any of our nice label values should be shown at this row
+            let mut label_to_show = None;
+            for &label_val in &label_values {
+                // Find the row that's closest to this label value
+                let label_row = ((max_val - label_val) / y_range * (chart_height - 1) as f64).round() as usize;
+                if label_row == row && !is_last_row {
+                    label_to_show = Some(label_val);
+                    break;
+                }
+            }
             
             // Y-axis label and tick
-            if should_show_label {
-                output.push_str(&format!("{:>4} ├", rounded_y));
-                shown_labels.insert(rounded_y);
+            if let Some(label_val) = label_to_show {
+                output.push_str(&format!("{:>4.0} ├", label_val));
             } else if is_last_row {
-                output.push_str(&format!("{:>4} └", min_val.round() as i32));
+                output.push_str(&format!("{:>4.0} └", min_val.round()));
                 // Skip to next line immediately for last row - no bars
                 output.push('\n');
                 continue;
