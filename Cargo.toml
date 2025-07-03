@@ -8,6 +8,7 @@ license = "MIT"
 repository = "https://github.com/christophergandrud/fastplot-cli"
 categories = ["command-line-utilities", "visualization", "science"]
 keywords = ["plotting", "terminal", "cli", "visualization", "youplot"]
+exclude = ["plans/"]
 
 [lib]
 name = "fastplot_cli"

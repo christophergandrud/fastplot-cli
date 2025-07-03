@@ -61,3 +61,6 @@ lcov.info
 # Backup files
 *.bak
 *.backup
+
+# Planning and design documents
+/plans/
