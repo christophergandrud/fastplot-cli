@@ -183,21 +183,6 @@ impl AxisRenderer {
         }
     }
 
-    /// Render X-axis line with consistent positioning
-    pub fn render_x_axis_line(&self) -> String {
-        let mut result = String::new();
-        
-        // Use consistent Y-axis offset
-        result.push_str(&format!("{:>width$}└", "", width = self.y_axis_offset));
-        
-        // Draw horizontal line
-        for _ in 0..self.chart_width {
-            result.push('─');
-        }
-        result.push('\n');
-        
-        result
-    }
 
 
     /// Render X-axis labels with consistent positioning and layout
@@ -329,18 +314,6 @@ impl AxisRenderer {
         }
         
         result
-    }
-
-    /// Generate bin center labels for histograms
-    pub fn generate_bin_labels(&self, bin_edges: &[f64]) -> Vec<String> {
-        let mut labels = Vec::new();
-        
-        for i in 0..bin_edges.len().saturating_sub(1) {
-            let bin_center = (bin_edges[i] + bin_edges[i + 1]) / 2.0;
-            labels.push(format!("{:.0}", bin_center));
-        }
-        
-        labels
     }
 }
 

@@ -3,12 +3,15 @@ use crate::plot::bar::BarChart;
 use crate::plot::DataUtils;
 use anyhow::{Result, anyhow};
 
+#[allow(dead_code)] // Public API methods may not all be used in tests
+
 pub struct Histogram {
     bins: Option<usize>,
     bin_width: Option<f64>,
     normalize: bool,
 }
 
+#[allow(dead_code)] // Public API methods
 impl Histogram {
     pub fn new(bins: Option<usize>) -> Self {
         Self {
@@ -131,25 +134,23 @@ impl Histogram {
         };
 
         Ok(HistogramData {
-            bin_edges,
             bin_values,
-            bin_width,
         })
     }
 }
 
 struct HistogramData {
-    bin_edges: Vec<f64>,
     bin_values: Vec<f64>,
-    bin_width: f64,
 }
 
 /// Cumulative histogram for displaying cumulative distributions
+#[allow(dead_code)] // Public API struct may not be used in all contexts
 pub struct CumulativeHistogram {
     bins: Option<usize>,
     normalize: bool,
 }
 
+#[allow(dead_code)] // Public API methods
 impl CumulativeHistogram {
     pub fn new(bins: Option<usize>) -> Self {
         Self { bins, normalize: false }
@@ -253,9 +254,7 @@ impl CumulativeHistogram {
         };
 
         Ok(HistogramData {
-            bin_edges,
             bin_values,
-            bin_width,
         })
     }
 }
