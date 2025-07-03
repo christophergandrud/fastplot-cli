@@ -58,7 +58,7 @@ impl Histogram {
         // Create a new DataFrame with the histogram data for the bar chart
         let bar_series = Series {
             name: if self.normalize { "Density".to_string() } else { "Frequency".to_string() },
-            data: histogram_data.bin_values,
+            data: histogram_data.bin_values.clone(),
         };
         
         let bar_dataframe = DataFrame {
@@ -78,9 +78,67 @@ impl Histogram {
             ..config.clone()
         };
 
-        // Use the bar chart to render the histogram
+        // Use the bar chart to render the histogram bars, then customize X-axis
         let bar_chart = BarChart::vertical();
-        bar_chart.render(&bar_dataframe, &bar_config)
+        let mut bar_output = bar_chart.render(&bar_dataframe, &bar_config)?;
+        
+        // Replace the bar chart's X-axis labels with histogram bin labels
+        self.replace_x_axis_labels(&mut bar_output, &histogram_data, &bar_config)
+    }
+    
+    fn replace_x_axis_labels(&self, bar_output: &mut String, hist_data: &HistogramData, config: &PlotConfig) -> Result<String> {
+        let lines: Vec<&str> = bar_output.lines().collect();
+        let mut result = String::new();
+        
+        // Copy all lines except the last one (which contains the X-axis labels)
+        for (i, line) in lines.iter().enumerate() {
+            if i == lines.len() - 1 {
+                // Replace the last line with histogram bin labels
+                result.push_str(&self.generate_histogram_x_axis(hist_data, config));
+            } else {
+                result.push_str(line);
+                result.push('\n');
+            }
+        }
+        
+        Ok(result)
+    }
+    
+    fn generate_histogram_x_axis(&self, hist_data: &HistogramData, config: &PlotConfig) -> String {
+        let mut result = String::new();
+        
+        // Generate bin center labels
+        let mut bin_labels = Vec::new();
+        for i in 0..hist_data.bin_edges.len().saturating_sub(1) {
+            let bin_center = (hist_data.bin_edges[i] + hist_data.bin_edges[i + 1]) / 2.0;
+            bin_labels.push(format!("{:.1}", bin_center));
+        }
+        
+        // Only show labels if we have a reasonable number of bins
+        if bin_labels.len() <= 15 {
+            result.push_str("     "); // Y-axis space
+            let chart_width = config.width.saturating_sub(5); // Account for Y-axis space
+            let mut labels = vec![' '; chart_width];
+            
+            // Calculate positions for each label (similar to bar chart logic)
+            for (i, label) in bin_labels.iter().enumerate() {
+                let bar_width = chart_width / bin_labels.len().max(1);
+                let label_center = i * bar_width + bar_width / 2;
+                let label_start = label_center.saturating_sub(label.len() / 2);
+                
+                for (j, ch) in label.chars().enumerate() {
+                    if label_start + j < chart_width {
+                        labels[label_start + j] = ch;
+                    }
+                }
+            }
+            
+            let labels_str: String = labels.iter().collect();
+            result.push_str(&labels_str);
+        }
+        
+        result.push('\n');
+        result
     }
 
     fn calculate_histogram(&self, data: &[f64]) -> Result<HistogramData> {
@@ -135,12 +193,14 @@ impl Histogram {
 
         Ok(HistogramData {
             bin_values,
+            bin_edges,
         })
     }
 }
 
 struct HistogramData {
     bin_values: Vec<f64>,
+    bin_edges: Vec<f64>,
 }
 
 /// Cumulative histogram for displaying cumulative distributions
@@ -255,6 +315,7 @@ impl CumulativeHistogram {
 
         Ok(HistogramData {
             bin_values,
+            bin_edges,
         })
     }
 }
