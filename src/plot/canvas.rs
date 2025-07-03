@@ -142,11 +142,19 @@ impl Canvas {
             }
         }
 
-        // Add X axis tick marks
+        // Add X axis tick marks - align with data positioning
         if x_ticks > 0 && self.height > 0 {
             let y_pos = self.height - 1;
-            for i in 1..=x_ticks {
-                let x_pos = (i * (self.width - 1)) / (x_ticks + 1);
+            let data_width = self.width.saturating_sub(1); // Available data width (excluding Y-axis column)
+            
+            for i in 0..x_ticks {
+                // Match data positioning: start from column 1, distribute evenly across data width
+                let x_pos = if x_ticks <= 1 {
+                    1 + data_width / 2 // Center position
+                } else {
+                    1 + (i * (data_width - 1)) / (x_ticks - 1)
+                };
+                
                 if x_pos < self.width && y_pos < self.buffer.len() {
                     self.buffer[y_pos][x_pos] = '┴';
                 }

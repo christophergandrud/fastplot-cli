@@ -73,19 +73,31 @@ impl ElementLayout {
     }
     
     
-    /// Calculate layout for axis ticks
-    pub fn for_ticks(chart_width: usize, num_ticks: usize) -> Self {
-        // Reserve column 0 for Y-axis, distribute ticks in the data area (columns 1 to chart_width-1)
-        let data_width = chart_width.saturating_sub(1); // Available width for data
+    /// Calculate layout for axis ticks - matches Canvas tick positioning
+    pub fn for_ticks(_chart_width: usize, _num_ticks: usize) -> Self {
+        // For Canvas-based plots, match Canvas's tick algorithm: x_pos = (i * (width - 1)) / (num_ticks + 1)
+        // This is different from evenly spaced ticks - it uses Canvas's internal spacing
         ElementLayout {
             element_width: 1,
-            spacing: if num_ticks > 1 && data_width > num_ticks { 
-                data_width.saturating_sub(num_ticks) / num_ticks.saturating_sub(1).max(1)
-            } else { 
-                0 
-            },
-            offset: 1, // Start from column 1 (after Y-axis)
+            spacing: 0, // Spacing handled by custom positioning
+            offset: 0,  // Will be calculated per-tick to match Canvas
         }
+    }
+    
+    /// Get tick position using Canvas algorithm (for Canvas-based plots)
+    pub fn canvas_tick_position(&self, tick_index: usize, chart_width: usize, num_ticks: usize) -> usize {
+        // Match Canvas's data positioning which reserves column 0 for Y-axis
+        // Data maps to columns 1 through width-1 using (width-2) as data width
+        // So ticks should be positioned in the same data space
+        let i = tick_index;
+        let data_width = chart_width.saturating_sub(1); // Available data width (excluding Y-axis column)
+        
+        if num_ticks <= 1 {
+            return 1 + data_width / 2; // Center position
+        }
+        
+        // Position ticks evenly across the data width, starting from column 1
+        1 + (i * (data_width - 1)) / (num_ticks - 1)
     }
     
     /// Calculate total width needed for this layout
@@ -199,13 +211,13 @@ impl AxisRenderer {
         // Use consistent Y-axis offset
         result.push_str(&format!("{:>width$} ", "", width = self.y_axis_offset));
         
-        // Create label layout - use ticks layout for alignment with tick marks
+        // Create label layout and use Canvas tick positioning for alignment
         let label_layout = ElementLayout::for_ticks(self.chart_width, labels.len());
         let mut label_line = vec![' '; self.chart_width];
         
-        // Place labels at tick positions
+        // Place labels at Canvas tick positions for proper alignment
         for (i, label) in labels.iter().enumerate() {
-            let position = label_layout.element_position(i);
+            let position = label_layout.canvas_tick_position(i, self.chart_width, labels.len());
             let label_start = position.saturating_sub(label.len() / 2);
             
             // Place the label if there's space
