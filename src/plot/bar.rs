@@ -60,7 +60,20 @@ impl BarChart {
         
         // Create clean Y-axis labels (round numbers)
         let y_range = max_val - min_val;
-        let label_step = 2; // Show labels every 2 rows
+        
+        // Calculate smart Y-axis labeling to avoid duplicates
+        let target_label_count = 5; // Aim for ~5 labels
+        let label_interval = if y_range > 0.0 {
+            // Find a nice round number for the interval
+            let raw_interval = y_range / target_label_count as f64;
+            if raw_interval >= 1.0 {
+                raw_interval.ceil()
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        };
         
         // Calculate dynamic layout using new layout system
         let layout = ElementLayout::for_bars(chart_width, data.len());
@@ -86,18 +99,33 @@ impl BarChart {
         }
 
         // Build the chart from top to bottom
+        let mut last_shown_label = f64::INFINITY; // Track last shown label to avoid duplicates
+        
         for row in 0..chart_height {
-            let is_label_row = row % label_step == 0;
             let is_last_row = row == chart_height - 1;
             
             // Calculate Y value for this row
             let y_value = max_val - (row as f64 / chart_height as f64) * y_range;
+            let rounded_y = y_value.round();
+            
+            // Determine if we should show a label at this row
+            let should_show_label = if is_last_row {
+                false // Don't show label on last row, it will be handled separately
+            } else {
+                // Show label if it's a multiple of our interval and we haven't shown it recently
+                rounded_y >= min_val && 
+                rounded_y <= max_val &&
+                (rounded_y % label_interval).abs() < 0.1 &&
+                (last_shown_label - rounded_y).abs() >= label_interval * 0.9 &&
+                (rounded_y - min_val.round()).abs() > 0.1 // Don't duplicate the bottom label
+            };
             
             // Y-axis label and tick
-            if is_label_row && !is_last_row {
-                output.push_str(&format!("{:>4.0} ├", y_value));
+            if should_show_label && !is_last_row {
+                output.push_str(&format!("{:>4.0} ├", rounded_y));
+                last_shown_label = rounded_y;
             } else if is_last_row {
-                output.push_str(&format!("{:>4.0} └", min_val));
+                output.push_str(&format!("{:>4.0} └", min_val.round()));
                 // Skip to next line immediately for last row - no bars
                 output.push('\n');
                 continue;
