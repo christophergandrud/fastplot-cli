@@ -1,10 +1,7 @@
-#![allow(dead_code)]
-
-use crate::data::{DataFrame, PlotConfig};
-use crate::plot::{Canvas, ColorUtils, DataUtils};
-use crate::plot::AxisRenderer;
+use crate::data::{DataFrame, PlotConfig, Series};
+use crate::plot::bar::BarChart;
+use crate::plot::DataUtils;
 use anyhow::{Result, anyhow};
-use crossterm::style::Color;
 
 pub struct Histogram {
     bins: Option<usize>,
@@ -52,22 +49,35 @@ impl Histogram {
             return Err(anyhow!("Empty data series"));
         }
 
-        let mut canvas = Canvas::with_labels(
-            config.width,
-            config.height,
-            config.title.clone(),
-            config.xlabel.clone(),
-            config.ylabel.clone(),
-        );
-
+        // Calculate histogram bins and convert to bar chart data
         let histogram_data = self.calculate_histogram(&series.data)?;
-        self.render_histogram(&mut canvas, &histogram_data, config)?;
+        
+        // Create a new DataFrame with the histogram data for the bar chart
+        let bar_series = Series {
+            name: if self.normalize { "Density".to_string() } else { "Frequency".to_string() },
+            data: histogram_data.bin_values,
+        };
+        
+        let bar_dataframe = DataFrame {
+            columns: vec![bar_series],
+            headers: None,
+        };
 
-        if config.color.is_some() {
-            Ok(self.render_histogram_with_labels_colored(&canvas, &histogram_data, config))
-        } else {
-            Ok(self.render_histogram_with_labels(&canvas, &histogram_data, config))
-        }
+        // Create a modified config for the bar chart
+        let bar_config = PlotConfig {
+            title: config.title.clone(),
+            xlabel: config.xlabel.clone(),
+            ylabel: if config.ylabel.is_some() { 
+                config.ylabel.clone() 
+            } else { 
+                Some(if self.normalize { "Density".to_string() } else { "Frequency".to_string() })
+            },
+            ..config.clone()
+        };
+
+        // Use the bar chart to render the histogram
+        let bar_chart = BarChart::vertical();
+        bar_chart.render(&bar_dataframe, &bar_config)
     }
 
     fn calculate_histogram(&self, data: &[f64]) -> Result<HistogramData> {
@@ -126,179 +136,6 @@ impl Histogram {
             bin_width,
         })
     }
-
-    fn render_histogram(&self, canvas: &mut Canvas, hist_data: &HistogramData, config: &PlotConfig) -> Result<()> {
-        let max_count = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        
-        if max_count <= 0.0 {
-            return Err(anyhow!("No data to display in histogram"));
-        }
-
-        let x_min = hist_data.bin_edges[0];
-        let x_max = hist_data.bin_edges[hist_data.bin_edges.len() - 1];
-        let y_max = max_count * 1.1; // Add 10% padding at the top
-
-        canvas.set_ranges((x_min, x_max), (0.0, y_max));
-        
-        // Draw axes with proper tick marks
-        let num_bins = hist_data.bin_values.len();
-        let y_ticks = 5.min(max_count as usize);
-        canvas.draw_axes_with_ticks(num_bins, y_ticks);
-
-        let color = ColorUtils::parse_color(&config.color);
-        let symbol = config.symbol.unwrap_or('█');
-
-        // Draw histogram bars
-        for (i, &count) in hist_data.bin_values.iter().enumerate() {
-            if count > 0.0 {
-                let x_left = hist_data.bin_edges[i];
-                let x_right = hist_data.bin_edges[i + 1];
-                
-                self.draw_histogram_bar(canvas, x_left, x_right, count, symbol, color);
-            }
-        }
-
-        Ok(())
-    }
-
-    fn draw_histogram_bar(&self, canvas: &mut Canvas, x_left: f64, x_right: f64, height: f64, symbol: char, color: Option<Color>) {
-        // Use fill_area to create solid rectangular bars
-        canvas.fill_area_with_color(x_left, 0.0, x_right, height, symbol, color);
-        
-        // Draw clear bar edges for definition
-        canvas.plot_line_with_color(x_left, 0.0, x_left, height, '│', color);
-        canvas.plot_line_with_color(x_right, 0.0, x_right, height, '│', color);
-        canvas.plot_line_with_color(x_left, height, x_right, height, '─', color);
-    }
-
-    fn render_histogram_with_labels(&self, canvas: &Canvas, hist_data: &HistogramData, _config: &PlotConfig) -> String {
-        let mut result = String::new();
-        
-        // Add title if present
-        if let Some(title) = canvas.get_title() {
-            let padding = if title.len() < canvas.get_width() {
-                (canvas.get_width() - title.len()) / 2
-            } else {
-                0
-            };
-            result.push_str(&" ".repeat(padding));
-            result.push_str(title);
-            result.push('\n');
-            result.push('\n');
-        }
-        
-        // Get canvas lines
-        let mut canvas_lines: Vec<String> = Vec::new();
-        for row in canvas.get_buffer() {
-            let line: String = row.iter().collect();
-            canvas_lines.push(line);
-        }
-        
-        // Add Y-axis values (integer values for frequency)
-        let max_freq = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b)) as i32;
-        let y_range = canvas.get_y_range();
-        let y_step = (y_range.1 - y_range.0) / (canvas.get_height() as f64 - 1.0);
-        
-        let mut last_shown_label = -1i32;
-        for (i, line) in canvas_lines.iter().enumerate() {
-            let y_value = y_range.1 - (i as f64 * y_step);
-            let y_int = y_value.round() as i32;
-            
-            // Only show the label if it's different from the last one shown and within range
-            if y_int >= 0 && y_int <= max_freq && y_int != last_shown_label {
-                result.push_str(&format!("{:8} {}\n", y_int, line));
-                last_shown_label = y_int;
-            } else {
-                result.push_str(&format!("{:8} {}\n", " ", line));
-            }
-        }
-        
-        // Add X-axis with unified axis renderer
-        let axis_renderer = AxisRenderer::new(canvas.get_width());
-        result.push_str(&axis_renderer.render_x_axis_line());
-        
-        // Add X-axis labels using unified renderer
-        let labels = axis_renderer.generate_bin_labels(&hist_data.bin_edges);
-        result.push_str(&axis_renderer.render_x_axis_labels(&labels));
-        
-        // Add x-label if present
-        if let Some(xlabel) = canvas.get_xlabel() {
-            let padding = if xlabel.len() < canvas.get_width() {
-                (canvas.get_width() - xlabel.len()) / 2
-            } else {
-                0
-            };
-            result.push_str(&" ".repeat(padding + 9)); // +9 for Y-axis space
-            result.push_str(xlabel);
-            result.push('\n');
-        }
-        
-        result
-    }
-
-    fn render_histogram_with_labels_colored(&self, canvas: &Canvas, hist_data: &HistogramData, _config: &PlotConfig) -> String {
-        let mut result = String::new();
-        
-        // Add title if present
-        if let Some(title) = canvas.get_title() {
-            let padding = if title.len() < canvas.get_width() {
-                (canvas.get_width() - title.len()) / 2
-            } else {
-                0
-            };
-            result.push_str(&" ".repeat(padding));
-            result.push_str(&format!("\x1b[1m{}\x1b[0m", title)); // Bold title
-            result.push('\n');
-            result.push('\n');
-        }
-        
-        // Get canvas lines with colors
-        let canvas_colored = canvas.render_colored(true);
-        let canvas_lines: Vec<String> = canvas_colored.lines().skip(if canvas.get_title().is_some() { 2 } else { 0 }).map(|s| s.to_string()).collect();
-        
-        // Add Y-axis values (integer values for frequency)
-        let max_freq = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b)) as i32;
-        let y_range = canvas.get_y_range();
-        let y_step = (y_range.1 - y_range.0) / (canvas.get_height() as f64 - 1.0);
-        
-        let mut last_shown_label = -1i32;
-        for (i, line) in canvas_lines.iter().enumerate() {
-            let y_value = y_range.1 - (i as f64 * y_step);
-            let y_int = y_value.round() as i32;
-            
-            // Only show the label if it's different from the last one shown and within range
-            if y_int >= 0 && y_int <= max_freq && y_int != last_shown_label {
-                result.push_str(&format!("{:8} {}\n", y_int, line));
-                last_shown_label = y_int;
-            } else {
-                result.push_str(&format!("{:8} {}\n", " ", line));
-            }
-        }
-        
-        // Add X-axis with unified axis renderer
-        let axis_renderer = AxisRenderer::new(canvas.get_width());
-        result.push_str(&axis_renderer.render_x_axis_line());
-        
-        // Add X-axis labels using unified renderer
-        let labels = axis_renderer.generate_bin_labels(&hist_data.bin_edges);
-        result.push_str(&axis_renderer.render_x_axis_labels(&labels));
-        
-        // Add x-label if present
-        if let Some(xlabel) = canvas.get_xlabel() {
-            let padding = if xlabel.len() < canvas.get_width() {
-                (canvas.get_width() - xlabel.len()) / 2
-            } else {
-                0
-            };
-            result.push_str(&" ".repeat(padding + 9)); // +9 for Y-axis space
-            result.push_str(xlabel);
-            result.push('\n');
-        }
-        
-        result
-    }
-
-    // Color parsing method removed - now using shared ColorUtils
 }
 
 struct HistogramData {
@@ -333,18 +170,35 @@ impl CumulativeHistogram {
             return Err(anyhow!("Empty data series"));
         }
 
-        let mut canvas = Canvas::with_labels(
-            config.width,
-            config.height,
-            config.title.clone(),
-            config.xlabel.clone(),
-            config.ylabel.clone(),
-        );
-
+        // Calculate cumulative histogram and convert to bar chart data
         let cumulative_data = self.calculate_cumulative_histogram(&series.data)?;
-        self.render_cumulative(&mut canvas, &cumulative_data, config)?;
+        
+        // Create a new DataFrame with the cumulative histogram data for the bar chart
+        let bar_series = Series {
+            name: if self.normalize { "Cumulative Density".to_string() } else { "Cumulative Frequency".to_string() },
+            data: cumulative_data.bin_values,
+        };
+        
+        let bar_dataframe = DataFrame {
+            columns: vec![bar_series],
+            headers: None,
+        };
 
-        Ok(canvas.render_colored(config.color.is_some()))
+        // Create a modified config for the bar chart
+        let bar_config = PlotConfig {
+            title: config.title.clone(),
+            xlabel: config.xlabel.clone(),
+            ylabel: if config.ylabel.is_some() { 
+                config.ylabel.clone() 
+            } else { 
+                Some(if self.normalize { "Cumulative Density".to_string() } else { "Cumulative Frequency".to_string() })
+            },
+            ..config.clone()
+        };
+
+        // Use the bar chart to render the cumulative histogram
+        let bar_chart = BarChart::vertical();
+        bar_chart.render(&bar_dataframe, &bar_config)
     }
 
     fn calculate_cumulative_histogram(&self, data: &[f64]) -> Result<HistogramData> {
@@ -356,7 +210,7 @@ impl CumulativeHistogram {
         }
 
         let bins = self.bins.unwrap_or_else(|| {
-            (1.0 + (data.len() as f64).log2()).ceil() as usize
+            DataUtils::calculate_optimal_bins(data.len())
         });
 
         let bin_width = (max_val - min_val) / bins as f64;
@@ -403,48 +257,6 @@ impl CumulativeHistogram {
             bin_values,
             bin_width,
         })
-    }
-
-    fn render_cumulative(&self, canvas: &mut Canvas, hist_data: &HistogramData, config: &PlotConfig) -> Result<()> {
-        let max_count = hist_data.bin_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        
-        let x_min = hist_data.bin_edges[0];
-        let x_max = hist_data.bin_edges[hist_data.bin_edges.len() - 1];
-        let y_max = max_count * 1.1;
-
-        canvas.set_ranges((x_min, x_max), (0.0, y_max));
-        canvas.draw_axis();
-
-        let color = if let Some(ref color_str) = config.color {
-            match color_str.to_lowercase().as_str() {
-                "red" => Some(Color::Red),
-                "green" => Some(Color::Green),
-                "blue" => Some(Color::Blue),
-                "yellow" => Some(Color::Yellow),
-                "magenta" => Some(Color::Magenta),
-                "cyan" => Some(Color::Cyan),
-                _ => Some(Color::Blue),
-            }
-        } else {
-            Some(Color::Blue)
-        };
-
-        // Draw cumulative line
-        for i in 0..hist_data.bin_values.len() {
-            let x = hist_data.bin_edges[i] + hist_data.bin_width / 2.0; // Center of bin
-            let y = hist_data.bin_values[i];
-            
-            canvas.plot_point_with_color(x, y, '●', color);
-            
-            // Connect with line to next point
-            if i < hist_data.bin_values.len() - 1 {
-                let next_x = hist_data.bin_edges[i + 1] + hist_data.bin_width / 2.0;
-                let next_y = hist_data.bin_values[i + 1];
-                canvas.plot_line_with_color(x, y, next_x, next_y, '·', color);
-            }
-        }
-
-        Ok(())
     }
 }
 

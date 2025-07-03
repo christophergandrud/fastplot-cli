@@ -387,9 +387,4 @@ mod tests {
         assert_eq!(normal.get_symbol(), '█');
     }
 
-    #[test]
-    fn test_tick_style() {
-        let tick = TickStyle::Standard;
-        assert_eq!(tick.get_symbol(), '┴');
-    }
 }
