@@ -58,20 +58,25 @@ fastplot bar sales.csv --symbol ▓ -c magenta -w 50 --height 25
 
 **Output Example:**
 ```
-                Revenue by Quarter
+                              Revenue by Quarter                               
 
-    30 ┤        ██
-       ┤        ██
-    25 ┤    ██  ██
-       ┤    ██  ██
-    20 ┤    ██  ██  ██
-       ┤    ██  ██  ██
-    15 ┤    ██  ██  ██  ██
-       ┤    ██  ██  ██  ██
-    10 ┤ ██ ██  ██  ██  ██
-       ┤ ██ ██  ██  ██  ██
-     0 └─┴──┴───┴───┴───┴──
-       1   2   3   4   5
+  30 ├                ██                                                    
+     │                ██                                                    
+     │                ██                                                    
+     │        ██      ██                                                    
+     │        ██      ██                                                    
+     │        ██      ██  ██                                                
+     │        ██      ██  ██                                                
+  15 ├        ██  ██  ██  ██                                                
+     │        ██  ██  ██  ██                                                
+     │        ██  ██  ██  ██                                                
+     │    ██  ██  ██  ██  ██                                                
+     │    ██  ██  ██  ██  ██                                                
+     │    ██  ██  ██  ██  ██                                                
+     │    ██  ██  ██  ██  ██                                                
+   0 └
+         ─┴───┴───┴───┴───┴                                                
+          1   2   3   4   5
 ```
 
 ### Line Plots
@@ -271,43 +276,6 @@ fastplot scatter data.csv -s ● -c red --xlim 0,10 --ylim 0,5 -t "Performance M
 fastplot box data.csv --no-outliers -c green -w 40 -h 15
 ```
 
-### Scientific Plotting
-```bash
-# High-resolution density
-fastplot density experiment.csv --resolution 500 --bandwidth 0.1 -t "Distribution Analysis"
-
-# Multi-series comparison
-fastplot lines timeseries.csv -H -t "Treatment vs Control" --xlabel "Time (hours)" --ylabel "Response"
-
-# Statistical summary
-fastplot box groups.csv -H --outlier-method tukey -t "Group Analysis"
-```
-
-## 🏆 Performance Comparison
-
-| Dataset Size | YouPlot | FastPlot | Speedup |
-|-------------|---------|----------|---------|
-| 1K points   | 0.8s    | 0.04s    | 20x     |
-| 10K points  | 8.2s    | 0.12s    | 68x     |
-| 100K points| 45s     | 0.31s    | 145x    |
-| 1M points   | 180s    | 1.2s     | 150x    |
-
-Memory usage is typically 3-5x lower than YouPlot.
-
-## 🤝 Migration from YouPlot
-
-FastPlot maintains command compatibility with YouPlot:
-
-```bash
-# YouPlot command
-uplot line data.csv -d, -H -t "My Plot" -w 60 -h 20
-
-# Equivalent FastPlot command (just change the binary name)
-fastplot line data.csv -d, -H -t "My Plot" -w 60 -h 20
-```
-
-Most YouPlot scripts will work with minimal changes.
-
 ## 🛠️ Development
 
 ### Building from Source
@@ -343,5 +311,3 @@ MIT License - see [LICENSE](LICENSE) for details.
 Found a bug or want to contribute? Please visit our [GitHub repository](https://github.com/christophergandrud/fastplot-cli).
 
 ---
-
-**FastPlot-CLI**: Where speed meets visualization 🚀📊
