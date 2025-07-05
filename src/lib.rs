@@ -9,6 +9,5 @@ pub use data::{DataFrame, Series, PlotConfig, DataFormat};
 pub use plot::{
     Canvas, BarChart, LinePlot, ScatterPlot, MultiScatterPlot, 
     Histogram, CumulativeHistogram, DensityPlot, KernelType,
-    BoxPlot, NotchedBoxPlot, Orientation, OutlierMethod,
     PlotType, PlotRenderer
 };

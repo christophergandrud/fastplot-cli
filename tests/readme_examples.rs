@@ -207,37 +207,6 @@ fn test_density_plot() {
         .stdout(predicate::str::contains("Probability Density"));
 }
 
-/// Test box plot
-#[test]
-fn test_box_plot() {
-    fastplot_cmd()
-        .arg("boxplot")
-        .arg("test_data/data.csv")
-        .arg("-d")
-        .arg(",")
-        .arg("-H")
-        .arg("-t")
-        .arg("Data Distribution")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Data Distribution"));
-}
-
-/// Test box plot with multiple groups
-#[test]
-fn test_box_plot_groups() {
-    fastplot_cmd()
-        .arg("boxplot")
-        .arg("test_data/groups.csv")
-        .arg("-d")
-        .arg(",")
-        .arg("-H")
-        .arg("-t")
-        .arg("Group Comparison")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Group Comparison"));
-}
 
 /// Test professional styling example
 #[test]
@@ -289,24 +258,6 @@ fn test_colorful_scatter_with_limits() {
         .stdout(predicate::str::contains("Performance Metrics"));
 }
 
-/// Test box plot with styling
-#[test]
-fn test_box_plot_styling() {
-    fastplot_cmd()
-        .arg("boxplot")
-        .arg("test_data/data.csv")
-        .arg("-d")
-        .arg(",")
-        .arg("-H")
-        .arg("-c")
-        .arg("green")
-        .arg("-w")
-        .arg("40")
-        .arg("--height")
-        .arg("15")
-        .assert()
-        .success();
-}
 
 /// Test multi-series line plot scientific style
 #[test]
@@ -347,7 +298,7 @@ fn test_density_plot_with_title() {
 /// Test help output for each command
 #[test]
 fn test_help_commands() {
-    let commands = ["bar", "hist", "line", "lines", "scatter", "density", "boxplot", "count"];
+    let commands = ["bar", "hist", "line", "lines", "scatter", "density", "count"];
     
     for cmd in &commands {
         fastplot_cmd()
@@ -390,7 +341,7 @@ fn test_all_plot_types_generate_output() {
     let xy_input = "1,2\n2,4\n3,1\n4,5\n5,3";
     
     // Test single-value plots
-    let single_commands = ["bar", "hist", "density", "boxplot", "count"];
+    let single_commands = ["bar", "hist", "density", "count"];
     for cmd in &single_commands {
         fastplot_cmd()
             .arg(cmd)

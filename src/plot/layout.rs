@@ -72,6 +72,45 @@ impl ElementLayout {
         layout
     }
     
+    /// Calculate layout for histogram bins (tight packing, no spreading)
+    pub fn for_histogram_bins(chart_width: usize, num_bins: usize) -> Self {
+        const MIN_BIN_WIDTH: usize = 1;
+        const PREFERRED_BIN_WIDTH: usize = 2;
+        
+        if num_bins == 0 {
+            return ElementLayout {
+                element_width: PREFERRED_BIN_WIDTH,
+                spacing: 0, // No spacing between histogram bins
+                offset: 1,
+            };
+        }
+        
+        // Start with preferred bin width and no spacing (bins are adjacent)
+        let mut layout = ElementLayout {
+            element_width: PREFERRED_BIN_WIDTH,
+            spacing: 0, // Histogram bins should be adjacent
+            offset: 1,
+        };
+        
+        // Check if preferred layout fits
+        let required = layout.total_width(num_bins);
+        
+        if required > chart_width {
+            // Fall back to minimum bin width, still no spacing
+            layout.element_width = MIN_BIN_WIDTH;
+            let required = layout.total_width(num_bins);
+            
+            // If still doesn't fit, we have a problem, but don't add spacing
+            if required > chart_width {
+                // Keep minimum width, adjust offset if needed
+                layout.offset = 0;
+            }
+        }
+        // Unlike bar charts, don't spread histogram bins across full width
+        // Keep them tightly packed to represent continuous data ranges
+        
+        layout
+    }
     
     /// Calculate layout for axis ticks - matches Canvas tick positioning
     pub fn for_ticks(_chart_width: usize, _num_ticks: usize) -> Self {

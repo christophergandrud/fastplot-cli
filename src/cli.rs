@@ -99,11 +99,6 @@ pub enum Commands {
         #[command(flatten)]
         options: PlotOptions,
     },
-    #[command(about = "Box plot")]
-    Boxplot {
-        #[command(flatten)]
-        options: PlotOptions,
-    },
     #[command(about = "Count-based bar chart")]
     Count {
         #[command(flatten)]

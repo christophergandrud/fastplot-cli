@@ -60,7 +60,7 @@ fn test_delimiter_options() {
 
 #[test]
 fn test_different_plot_types() {
-    let plot_types = ["bar", "hist", "line", "lines", "scatter", "density", "boxplot", "count"];
+    let plot_types = ["bar", "hist", "line", "lines", "scatter", "density", "count"];
     
     for plot_type in plot_types {
         let mut cmd = Command::cargo_bin("fastplot").unwrap();

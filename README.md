@@ -168,35 +168,6 @@ fastplot density data.csv --resolution 300
 - `triangular`: Simple, triangular shape
 - `uniform`: Flat, rectangular
 
-### Box Plots
-
-Statistical summaries showing quartiles, outliers, and distribution shape.
-
-```bash
-# Single box plot
-fastplot box data.csv -t "Data Distribution"
-
-# Multiple groups side-by-side
-fastplot box groups.csv -d, -H -t "Group Comparison"
-
-# Horizontal orientation
-fastplot box data.csv --horizontal -c blue
-
-# Hide outliers
-fastplot box data.csv --no-outliers
-
-# Different outlier detection methods
-fastplot box data.csv --outlier-method tukey
-```
-
-**Features:**
-- Quartiles (Q1, median, Q3)
-- Whiskers showing data range
-- Outlier detection (IQR or Tukey methods)
-- Multiple groups support
-- Notched boxes for confidence intervals
-
-
 ## ⚙️ Command Line Options
 
 ### Global Options

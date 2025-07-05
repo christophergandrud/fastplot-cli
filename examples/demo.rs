@@ -12,7 +12,6 @@ fn main() -> anyhow::Result<()> {
     demo_scatter_plot(&sample_data)?;
     demo_histogram(&sample_data)?;
     demo_density_plot(&sample_data)?;
-    demo_box_plot(&sample_data)?;
     
     println!("\n✅ All plot demos completed successfully!");
     println!("📖 See README.md for more examples and usage instructions.");
@@ -50,16 +49,12 @@ fn generate_sample_data() -> SampleDataSets {
         })
         .collect();
 
-    let box_data_group1 = vec![2.1, 2.5, 2.8, 3.2, 3.5, 3.8, 4.1, 4.5, 4.8, 5.2, 7.1]; // some outliers
-    let box_data_group2 = vec![1.8, 2.2, 2.6, 2.9, 3.3, 3.7, 4.0, 4.4, 4.7, 5.1];
-    let box_data_group3 = vec![3.1, 3.4, 3.8, 4.1, 4.5, 4.9, 5.2, 5.6, 5.9, 6.3, 8.2]; // some outliers
 
     SampleDataSets {
         bar_data,
         line_data,
         scatter_data,
         histogram_data,
-        box_data_groups: vec![box_data_group1, box_data_group2, box_data_group3],
     }
 }
 
@@ -264,56 +259,12 @@ fn demo_density_plot(data: &SampleDataSets) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn demo_box_plot(data: &SampleDataSets) -> anyhow::Result<()> {
-    println!("\n📦 Box Plot Demo");
-    println!("================");
-
-    // Create DataFrame with multiple groups for box plot
-    let series1 = Series {
-        name: "Group A".to_string(),
-        data: data.box_data_groups[0].clone(),
-    };
-    let series2 = Series {
-        name: "Group B".to_string(),
-        data: data.box_data_groups[1].clone(),
-    };
-    let series3 = Series {
-        name: "Group C".to_string(),
-        data: data.box_data_groups[2].clone(),
-    };
-    let dataframe = DataFrame {
-        columns: vec![series1, series2, series3],
-        headers: None,
-    };
-
-    let config = PlotConfig {
-        width: 50,
-        height: 20,
-        title: Some("Group Comparison".to_string()),
-        xlabel: Some("Groups".to_string()),
-        ylabel: Some("Values".to_string()),
-        delimiter: ',',
-        has_header: false,
-        format: DataFormat::XYY,
-        xlim: None,
-        ylim: None,
-        color: Some("blue".to_string()),
-        symbol: None,
-    };
-
-    let box_plot = plot::BoxPlot::vertical();
-    let output = box_plot.render(&dataframe, &config)?;
-    println!("{}", output);
-
-    Ok(())
-}
 
 struct SampleDataSets {
     bar_data: Vec<f64>,
     line_data: Vec<(f64, f64)>,
     scatter_data: Vec<(f64, f64)>,
     histogram_data: Vec<f64>,
-    box_data_groups: Vec<Vec<f64>>,
 }
 
 use rand; // Note: This would need to be added to dependencies for a real demo

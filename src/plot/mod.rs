@@ -4,16 +4,17 @@ pub mod line;
 pub mod scatter;
 pub mod histogram;
 pub mod density;
-pub mod boxplot;
 pub mod layout;
 
 // Shared utility modules
 pub mod color_utils;
 pub mod axis_utils;
+pub mod axis_ticks;
 pub mod data_utils;
 pub mod render_utils;
 
-use crate::data::{DataFrame, PlotConfig};
+use crate::data::{DataFrame, PlotConfig, Series};
+use anyhow::anyhow;
 use anyhow::Result;
 
 pub use canvas::Canvas;
@@ -26,14 +27,12 @@ pub use histogram::Histogram;
 #[allow(unused_imports)]
 pub use histogram::CumulativeHistogram;
 pub use density::{DensityPlot, KernelType};
-pub use boxplot::BoxPlot;
-#[allow(unused_imports)]
-pub use boxplot::{NotchedBoxPlot, Orientation, OutlierMethod};
 
 // Export utility modules
 pub use color_utils::ColorUtils;
 pub use data_utils::DataUtils;
 pub use render_utils::RenderUtils;
+pub use axis_ticks::AxisTickGenerator;
 
 // Export layout system
 pub use layout::{
@@ -50,7 +49,6 @@ pub enum PlotType {
     Scatter,
     Histogram,
     Density,
-    BoxPlot,
     Count,
 }
 
@@ -65,7 +63,6 @@ impl PlotType {
             "scatter" => Some(PlotType::Scatter),
             "hist" | "histogram" => Some(PlotType::Histogram),
             "density" => Some(PlotType::Density),
-            "box" | "boxplot" => Some(PlotType::BoxPlot),
             "count" => Some(PlotType::Count),
             _ => None,
         }
@@ -77,6 +74,41 @@ pub struct PlotRenderer;
 
 #[allow(dead_code)]
 impl PlotRenderer {
+    /// Create frequency count data from raw values for count plots
+    fn create_count_data(data: &DataFrame) -> Result<DataFrame> {
+        use std::collections::HashMap;
+        
+        if data.columns.is_empty() {
+            return Err(anyhow!("No data provided for count plot"));
+        }
+        
+        let series = &data.columns[0];
+        let mut counts: HashMap<i64, usize> = HashMap::new();
+        
+        // Count occurrences of each value (assuming they can be converted to integers)
+        for &value in &series.data {
+            let rounded_value = value.round() as i64;
+            *counts.entry(rounded_value).or_insert(0) += 1;
+        }
+        
+        // Sort by value for consistent ordering
+        let mut sorted_counts: Vec<(i64, usize)> = counts.into_iter().collect();
+        sorted_counts.sort_by_key(|&(value, _)| value);
+        
+        // Create new DataFrame with counts as the data
+        let count_values: Vec<f64> = sorted_counts.iter().map(|(_, count)| *count as f64).collect();
+        
+        let count_series = Series {
+            name: format!("Count of {}", series.name),
+            data: count_values,
+        };
+        
+        Ok(DataFrame {
+            columns: vec![count_series],
+            headers: Some(sorted_counts.iter().map(|(value, _)| value.to_string()).collect()),
+        })
+    }
+
     pub fn render(plot_type: PlotType, data: &DataFrame, config: &PlotConfig) -> Result<String> {
         match plot_type {
             PlotType::Bar => {
@@ -109,14 +141,11 @@ impl PlotRenderer {
                     .with_resolution(200);
                 chart.render(data, config)
             }
-            PlotType::BoxPlot => {
-                let chart = BoxPlot::vertical();
-                chart.render(data, config)
-            }
             PlotType::Count => {
-                // For count plots, convert data to histogram
-                let chart = Histogram::auto_bins();
-                chart.render(data, config)
+                // For count plots, create frequency counts and use bar chart
+                let count_data = Self::create_count_data(data)?;
+                let chart = BarChart::vertical();
+                chart.render(&count_data, config)
             }
         }
     }
