@@ -186,7 +186,6 @@ impl Canvas {
         
         // Convert to string and trim trailing spaces
         let x_label_str: String = x_label_line.iter().collect();
-        output.push_str(&format!("{:>width$} ", "", width = self.left_margin - 1));
         output.push_str(x_label_str.trim_end());
         output.push('\n');
         
