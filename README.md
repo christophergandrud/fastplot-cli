@@ -18,9 +18,6 @@ fastplot scatter data.csv --title "My Plot"
 
 # Use custom symbol
 fastplot scatter data.csv --symbol "+"
-
-# Or run directly with cargo
-cargo run -- scatter data.csv --title "My Plot"
 ```
 
 ### CSV Format
