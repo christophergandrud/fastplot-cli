@@ -2,7 +2,7 @@
 
 [Status: **WIP**]
 
-A high-performance terminal plotting tool implemented in Rust, inspired by YouPlot. FastPlot provides 10-100x faster performance while maintaining a familiar command-line interface for data visualization directly in your terminal.
+A high-performance terminal plotting tool implemented in Rust, inspired by YouPlot.
 
 ## 🚀 Features
 
