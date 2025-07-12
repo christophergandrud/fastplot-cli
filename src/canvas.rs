@@ -163,23 +163,31 @@ impl Canvas {
         }
         output.push('\n');
         
-        // X-axis labels
+        // X-axis labels - position them to align with tick marks
         let x_ticks = self.x_axis.get_ticks();
-        let mut x_label_line = format!("{:>width$} ", "", width = self.left_margin - 1);
+        let plot_width = self.width - self.left_margin;
+        let mut x_label_line = vec![' '; self.width];
         
-        for (i, &tick) in x_ticks.iter().enumerate() {
+        for &tick in &x_ticks {
             let label = format_tick(tick);
-            if i == 0 {
-                x_label_line.push_str(&label);
-            } else {
-                // Calculate spacing to next label
-                let spacing = (self.width - self.left_margin) / (x_ticks.len() - 1);
-                let padding = spacing.saturating_sub(label.len());
-                x_label_line.push_str(&" ".repeat(padding));
-                x_label_line.push_str(&label);
+            let x_pos = self.x_axis.data_to_position(tick, plot_width);
+            let grid_x = self.left_margin + x_pos;
+            
+            // Center the label on the tick position
+            let label_start = grid_x.saturating_sub(label.len() / 2);
+            if label_start + label.len() <= self.width {
+                for (i, ch) in label.chars().enumerate() {
+                    if label_start + i < self.width {
+                        x_label_line[label_start + i] = ch;
+                    }
+                }
             }
         }
-        output.push_str(&x_label_line);
+        
+        // Convert to string and trim trailing spaces
+        let x_label_str: String = x_label_line.iter().collect();
+        output.push_str(&format!("{:>width$} ", "", width = self.left_margin - 1));
+        output.push_str(x_label_str.trim_end());
         output.push('\n');
         
         // X-axis label centered
