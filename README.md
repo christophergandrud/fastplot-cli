@@ -4,18 +4,23 @@ A fast terminal plotting tool written in Rust.
 
 ## Quick Start
 
-### Build
+### Install
 ```bash
+# Build and install locally
 cargo build --release
+cargo install --path .
 ```
 
 ### Usage
 ```bash
 # Create a scatter plot from CSV data
-./target/release/fastplot scatter data.csv --title "My Plot"
+fastplot scatter data.csv --title "My Plot"
 
 # Use custom symbol
-./target/release/fastplot scatter data.csv --symbol "+"
+fastplot scatter data.csv --symbol "+"
+
+# Or run directly with cargo
+cargo run -- scatter data.csv --title "My Plot"
 ```
 
 ### CSV Format
