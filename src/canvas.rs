@@ -25,7 +25,7 @@ impl Canvas {
         let width = left_margin + 25; // Plot area width
         let height = 12; // Plot area height
         
-        let mut grid = vec![vec![' '; width]; height];
+        let grid = vec![vec![' '; width]; height];
         
         let mut canvas = Self {
             width,
@@ -58,12 +58,12 @@ impl Canvas {
         }
     }
     
-    fn draw_title(&mut self, title: &str) {
+    fn draw_title(&mut self, _title: &str) {
         // Title goes above the plot area
         // We'll handle this in the render method
     }
     
-    fn draw_axis_labels(&mut self, x_label: &str, y_label: &str) {
+    fn draw_axis_labels(&mut self, _x_label: &str, _y_label: &str) {
         // Labels will be handled in render method
     }
     
@@ -130,7 +130,7 @@ impl Canvas {
             let grid_y = i;
             let y_pos = plot_height - 1 - grid_y + 1;
             let data_y = y_pos as f64 / (plot_height - 1) as f64;
-            let actual_y = self.y_axis.min + data_y * (self.y_axis.max - self.y_axis.min);
+            let _actual_y = self.y_axis.min + data_y * (self.y_axis.max - self.y_axis.min);
             
             // Check if this row has a y-tick
             let tick_label = y_ticks.iter()

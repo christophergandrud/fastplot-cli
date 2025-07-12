@@ -30,12 +30,17 @@ Proceed?
 - Build specific features using shared components
 - Design for reuse across different plot types
 
-### 5. Keep it simple
+### 5. Build with no warnings
+- Run `cargo build` and fix all warnings before committing
+- Use `cargo clippy` for additional linting
+- Code must compile cleanly
+
+### 6. Keep it simple
 - Use what already exists
 - Don't over-engineer
 - Solve only what's asked
 
-### 6. Clean up after
+### 7. Clean up after
 ```bash
 # After work is done
 git checkout main
