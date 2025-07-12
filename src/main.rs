@@ -1,6 +1,7 @@
 mod data;
-mod axis;
-mod canvas;
+mod coordinates;
+mod ticks;
+mod layout;
 mod scatter;
 
 use clap::{Parser, Subcommand};

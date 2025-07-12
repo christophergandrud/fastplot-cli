@@ -28,8 +28,8 @@ pub fn parse_csv(file_path: &str) -> Result<Dataset> {
     
     for result in reader.records() {
         let record = result?;
-        let x: f64 = record.get(0).unwrap_or("0").parse()?;
-        let y: f64 = record.get(1).unwrap_or("0").parse()?;
+        let x: f64 = record.get(0).unwrap_or("0").trim().parse()?;
+        let y: f64 = record.get(1).unwrap_or("0").trim().parse()?;
         points.push(DataPoint { x, y });
     }
     
