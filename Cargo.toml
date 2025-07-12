@@ -1,0 +1,13 @@
+[package]
+name = "fastplot-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "fastplot"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+csv = "1.3"
+anyhow = "1.0"

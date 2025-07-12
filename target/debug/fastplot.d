@@ -1,0 +1,1 @@
+/Users/christophergandrud/git_repos/fastplot-cli/target/debug/fastplot: /Users/christophergandrud/git_repos/fastplot-cli/src/axis.rs /Users/christophergandrud/git_repos/fastplot-cli/src/canvas.rs /Users/christophergandrud/git_repos/fastplot-cli/src/data.rs /Users/christophergandrud/git_repos/fastplot-cli/src/main.rs /Users/christophergandrud/git_repos/fastplot-cli/src/scatter.rs
