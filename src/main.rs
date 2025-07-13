@@ -26,6 +26,9 @@ enum Commands {
         /// Plot symbol
         #[arg(short, long, default_value = "●")]
         symbol: char,
+        /// Color for the plot (named color or hex code)
+        #[arg(short, long)]
+        color: Option<String>,
     },
 }
 
@@ -33,9 +36,9 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     
     match cli.command {
-        Commands::Scatter { file, title, symbol } => {
+        Commands::Scatter { file, title, symbol, color } => {
             let dataset = data::parse_csv(&file)?;
-            let output = scatter::render_scatter_plot(&dataset, &title, symbol);
+            let output = scatter::render_scatter_plot(&dataset, &title, symbol, color.as_deref());
             print!("{}", output);
         }
     }
