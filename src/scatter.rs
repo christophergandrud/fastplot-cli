@@ -137,6 +137,12 @@ impl CharCanvas {
     fn render_with_y_labels(&self, layout: &crate::layout::Layout) -> String {
         let mut output = String::new();
         
+        // Calculate the maximum width of y-axis labels for consistent alignment
+        let max_label_width = layout.y_ticks.iter()
+            .map(|(_, tick)| tick.label.len())
+            .max()
+            .unwrap_or(0);
+        
         let plot_start = layout.plot_area.top;
         let plot_end = layout.plot_area.top + layout.plot_area.height;
         
@@ -146,9 +152,9 @@ impl CharCanvas {
                 .map(|(_, tick)| &tick.label);
             
             if let Some(label) = y_label {
-                output.push_str(&format!("{:>3} ", label));
+                output.push_str(&format!("{:>width$} ", label, width = max_label_width));
             } else {
-                output.push_str("    ");
+                output.push_str(&" ".repeat(max_label_width + 1));
             }
             
             let mut line = String::new();
@@ -170,7 +176,7 @@ impl CharCanvas {
         // Add x-axis labels below the plot
         let x_axis_row = plot_end + 1;
         if x_axis_row < self.height {
-            output.push_str("    ");
+            output.push_str(&" ".repeat(max_label_width + 1));
             let x_label_line: String = self.buffer[x_axis_row].iter().collect();
             output.push_str(x_label_line.trim_end());
             output.push('\n');

@@ -27,9 +27,9 @@ enum Commands {
         /// Plot title
         #[arg(short, long, default_value = "Scatter Plot")]
         title: String,
-        /// Plot symbol
-        #[arg(short, long, default_value = "●")]
-        symbol: char,
+        /// Point character
+        #[arg(short = 'p', long, default_value = "●")]
+        point_char: char,
         /// Color for the plot (named color or hex code)
         #[arg(short, long)]
         color: Option<String>,
@@ -65,9 +65,9 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     
     match cli.command {
-        Commands::Scatter { file, title, symbol, color } => {
+        Commands::Scatter { file, title, point_char, color } => {
             let dataset = data::parse_csv(&file)?;
-            let output = scatter::render_scatter_plot(&dataset, &title, symbol, color.as_deref());
+            let output = scatter::render_scatter_plot(&dataset, &title, point_char, color.as_deref());
             print!("{}", output);
         }
         Commands::Line { 

@@ -3,8 +3,6 @@ use colored::Colorize;
 /// Priority levels for rendering (higher overwrites lower)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RenderPriority {
-    Background = 0,
-    Grid = 1,
     Axes = 2,
     Lines = 3,
     Points = 4,
@@ -198,7 +196,7 @@ mod tests {
         
         // Get layers in different order
         canvas.get_layer(RenderPriority::Points);
-        canvas.get_layer(RenderPriority::Background);
+        canvas.get_layer(RenderPriority::Axes);
         canvas.get_layer(RenderPriority::Lines);
         
         // Layers should be sorted by priority
@@ -211,15 +209,15 @@ mod tests {
     fn test_layer_overwrite() {
         let mut canvas = LayeredCanvas::new(10, 5);
         
-        // Draw on background layer
-        let bg_layer = canvas.get_layer(RenderPriority::Background);
-        bg_layer.draw_point(2, 2, 'B');
+        // Draw on axes layer
+        let axes_layer = canvas.get_layer(RenderPriority::Axes);
+        axes_layer.draw_point(2, 2, 'A');
         
         // Draw on points layer (higher priority)
         let points_layer = canvas.get_layer(RenderPriority::Points);
         points_layer.draw_point(2, 2, 'P');
         
-        // Flatten and check that points layer overwrites background
+        // Flatten and check that points layer overwrites axes
         let result = canvas.flatten();
         assert_eq!(result.buffer[2][2], 'P');
     }

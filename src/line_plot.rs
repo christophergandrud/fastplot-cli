@@ -13,7 +13,6 @@ pub struct LinePlot {
     title: String,
     x_label: String,
     y_label: String,
-    connect_gaps: bool,
 }
 
 impl LinePlot {
@@ -28,7 +27,6 @@ impl LinePlot {
             title: title.to_string(),
             x_label: dataset.x_label.clone(),
             y_label: dataset.y_label.clone(),
-            connect_gaps: true,
         }
     }
 
@@ -37,20 +35,6 @@ impl LinePlot {
         self
     }
 
-    pub fn with_connect_gaps(mut self, connect: bool) -> Self {
-        self.connect_gaps = connect;
-        self
-    }
-
-    pub fn add_point(&mut self, x: f64, y: f64) {
-        self.data.push(DataPoint { x, y });
-    }
-
-    pub fn add_points(&mut self, points: &[(f64, f64)]) {
-        for (x, y) in points {
-            self.add_point(*x, *y);
-        }
-    }
 
     pub fn render(&self, color: Option<&str>) -> String {
         if self.data.is_empty() {
@@ -217,6 +201,12 @@ impl LinePlot {
         let canvas_output = canvas.to_string();
         let lines: Vec<&str> = canvas_output.lines().collect();
         
+        // Calculate the maximum width of y-axis labels for consistent alignment
+        let max_label_width = layout.y_ticks.iter()
+            .map(|(_, tick)| tick.label.len())
+            .max()
+            .unwrap_or(0);
+        
         let mut output = String::new();
         let plot_start = layout.plot_area.top;
         let plot_end = layout.plot_area.top + layout.plot_area.height;
@@ -227,9 +217,9 @@ impl LinePlot {
                 .map(|(_, tick)| &tick.label);
             
             if let Some(label) = y_label {
-                output.push_str(&format!("{:>3} ", label));
+                output.push_str(&format!("{:>width$} ", label, width = max_label_width));
             } else {
-                output.push_str("    ");
+                output.push_str(&" ".repeat(max_label_width + 1));
             }
             
             if row < lines.len() {
@@ -241,7 +231,7 @@ impl LinePlot {
         // Add x-axis labels below the plot
         let x_axis_row = plot_end + 1;
         if x_axis_row < lines.len() {
-            output.push_str("    ");
+            output.push_str(&" ".repeat(max_label_width + 1));
             output.push_str(lines[x_axis_row]);
             output.push('\n');
         }
@@ -250,39 +240,6 @@ impl LinePlot {
     }
 }
 
-fn apply_color(ch: char, color_str: &str) -> Option<String> {
-    use colored::Colorize;
-    
-    let ch_str = ch.to_string();
-    
-    if color_str.starts_with('#') && color_str.len() == 7 {
-        if let Ok(r) = u8::from_str_radix(&color_str[1..3], 16) {
-            if let Ok(g) = u8::from_str_radix(&color_str[3..5], 16) {
-                if let Ok(b) = u8::from_str_radix(&color_str[5..7], 16) {
-                    return Some(ch_str.truecolor(r, g, b).to_string());
-                }
-            }
-        }
-    }
-    
-    match color_str.to_lowercase().as_str() {
-        "red" => Some(ch_str.red().to_string()),
-        "green" => Some(ch_str.green().to_string()),
-        "blue" => Some(ch_str.blue().to_string()),
-        "yellow" => Some(ch_str.yellow().to_string()),
-        "magenta" | "purple" => Some(ch_str.magenta().to_string()),
-        "cyan" => Some(ch_str.cyan().to_string()),
-        "white" => Some(ch_str.white().to_string()),
-        "black" => Some(ch_str.black().to_string()),
-        "bright_red" => Some(ch_str.bright_red().to_string()),
-        "bright_green" => Some(ch_str.bright_green().to_string()),
-        "bright_blue" => Some(ch_str.bright_blue().to_string()),
-        "bright_yellow" => Some(ch_str.bright_yellow().to_string()),
-        "bright_magenta" | "bright_purple" => Some(ch_str.bright_magenta().to_string()),
-        "bright_cyan" => Some(ch_str.bright_cyan().to_string()),
-        _ => None,
-    }
-}
 
 pub fn render_line_plot(dataset: &Dataset, title: &str, style: LineStyle, color: Option<&str>) -> String {
     let plot = LinePlot::new(dataset, title, 80, 24).with_style(style);
