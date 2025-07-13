@@ -7,6 +7,7 @@ mod line_style;
 mod line_drawing;
 mod layered_canvas;
 mod line_plot;
+mod function;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
@@ -55,6 +56,25 @@ enum Commands {
         /// Line character
         #[arg(short = 'l', long)]
         line_char: Option<char>,
+        /// Color for the plot (named color or hex code)
+        #[arg(short, long)]
+        color: Option<String>,
+    },
+    Function {
+        /// Mathematical expression to plot (e.g., "sin(x)", "x^2 + 2*x + 1")
+        expression: String,
+        /// Plot title
+        #[arg(short, long)]
+        title: Option<String>,
+        /// X range as min:max (e.g., "-5:5")
+        #[arg(short, long)]
+        range: Option<String>,
+        /// Number of points to evaluate
+        #[arg(short, long, default_value = "200")]
+        points: usize,
+        /// Line style (default, ascii, smooth, dashed)
+        #[arg(short = 'S', long, default_value = "default")]
+        style: String,
         /// Color for the plot (named color or hex code)
         #[arg(short, long)]
         color: Option<String>,
@@ -108,7 +128,58 @@ fn main() -> Result<()> {
             let output = line_plot::render_line_plot(&dataset, &title, line_style, color.as_deref());
             print!("{}", output);
         }
+        Commands::Function { 
+            expression, 
+            title, 
+            range, 
+            points, 
+            style, 
+            color 
+        } => {
+            // Parse range or use intelligent default
+            let (x_min, x_max) = if let Some(range_str) = range {
+                parse_range(&range_str)?
+            } else {
+                function::detect_range(&expression)
+            };
+            
+            // Create function and generate dataset
+            let func = function::Function::new(&expression);
+            let dataset = func.generate_dataset(x_min, x_max, Some(points))?;
+            
+            // Determine title
+            let plot_title = title.unwrap_or_else(|| format!("f(x) = {}", expression));
+            
+            // Create line style
+            let line_style = match style.as_str() {
+                "ascii" => line_style::LineStyle::with_ascii(),
+                "smooth" => line_style::LineStyle::with_unicode_smooth(),
+                "dashed" => line_style::LineStyle::with_dashed(),
+                _ => line_style::LineStyle::default(),
+            };
+            
+            let output = line_plot::render_line_plot(&dataset, &plot_title, line_style, color.as_deref());
+            print!("{}", output);
+        }
     }
     
     Ok(())
+}
+
+fn parse_range(range_str: &str) -> Result<(f64, f64)> {
+    let parts: Vec<&str> = range_str.split(':').collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!("Range must be in format 'min:max', got: {}", range_str));
+    }
+    
+    let min: f64 = parts[0].parse()
+        .map_err(|_| anyhow::anyhow!("Invalid minimum value: {}", parts[0]))?;
+    let max: f64 = parts[1].parse()
+        .map_err(|_| anyhow::anyhow!("Invalid maximum value: {}", parts[1]))?;
+    
+    if min >= max {
+        return Err(anyhow::anyhow!("Minimum value must be less than maximum value"));
+    }
+    
+    Ok((min, max))
 }
