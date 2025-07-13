@@ -18,7 +18,7 @@ impl From<DataPoint> for OldDataPoint {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenPoint {
     pub col: usize,
     pub row: usize,
