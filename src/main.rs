@@ -8,6 +8,7 @@ mod line_drawing;
 mod layered_canvas;
 mod line_plot;
 mod function;
+mod bar_chart;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
@@ -72,6 +73,28 @@ enum Commands {
         #[arg(long, default_value = "200")]
         points: usize,
     },
+    Bar {
+        /// Data source: CSV file path or function expression (e.g., "data.csv" or "function:x^2")
+        source: String,
+        /// Plot title
+        #[arg(short, long, default_value = "Bar Chart")]
+        title: String,
+        /// Bar character
+        #[arg(short = 'b', long, default_value = "█")]
+        bar_char: char,
+        /// Bar width in characters
+        #[arg(short = 'w', long, default_value = "1")]
+        bar_width: usize,
+        /// Color for the plot (named color or hex code)
+        #[arg(short, long)]
+        color: Option<String>,
+        /// X range for functions as min:max (e.g., "-5:5")
+        #[arg(short, long)]
+        range: Option<String>,
+        /// Number of points to evaluate for functions
+        #[arg(long, default_value = "200")]
+        points: usize,
+    },
 }
 
 fn main() -> Result<()> {
@@ -121,6 +144,11 @@ fn main() -> Result<()> {
             }
             
             let output = line_plot::render_line_plot(&dataset, &title, line_style, color.as_deref());
+            print!("{}", output);
+        }
+        Commands::Bar { source, title, bar_char, bar_width, color, range, points } => {
+            let dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
+            let output = bar_chart::render_bar_chart(&dataset, &title, bar_char, bar_width, color.as_deref());
             print!("{}", output);
         }
     }
