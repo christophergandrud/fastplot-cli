@@ -9,6 +9,7 @@ mod layered_canvas;
 mod line_plot;
 mod function;
 mod bar_chart;
+mod color;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
@@ -94,6 +95,9 @@ enum Commands {
         /// Number of points to evaluate for functions
         #[arg(long, default_value = "200")]
         points: usize,
+        /// Custom category order as comma-separated list (e.g., "Q1,Q2,Q3,Q4")
+        #[arg(long)]
+        category_order: Option<String>,
     },
 }
 
@@ -146,8 +150,17 @@ fn main() -> Result<()> {
             let output = line_plot::render_line_plot(&dataset, &title, line_style, color.as_deref());
             print!("{}", output);
         }
-        Commands::Bar { source, title, bar_char, bar_width, color, range, points } => {
-            let dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
+        Commands::Bar { source, title, bar_char, bar_width, color, range, points, category_order } => {
+            let mut dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
+            
+            // Apply custom category ordering if specified
+            if let Some(order) = category_order {
+                if dataset.is_categorical {
+                    let custom_categories: Vec<String> = order.split(',').map(|s| s.trim().to_string()).collect();
+                    dataset = data::reorder_categories(dataset, custom_categories)?;
+                }
+            }
+            
             let output = bar_chart::render_bar_chart(&dataset, &title, bar_char, bar_width, color.as_deref());
             print!("{}", output);
         }

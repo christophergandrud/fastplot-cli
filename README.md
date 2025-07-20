@@ -18,7 +18,8 @@ fastplot line "function:sin(x)" --title "Sine Wave"
 
 ## Features
 
-- **Data Files**: Plot CSV files with scatter and line plots
+- **Data Files**: Plot CSV files with scatter, line, and bar plots
+- **Categorical Data**: Bar charts with categorical x-axis labels (auto-detected)
 - **Mathematical Functions**: Plot expressions like `sin(x)`, `x^2`, `exp(-x)*cos(5*x)`
 - **Rich Styling**: Unicode/ASCII styles, custom colors, point characters
 - **Smart Ranges**: Automatic scaling or custom ranges (`--range="-5:5"`)
@@ -36,6 +37,11 @@ fastplot line data.csv --points-only --color red
 # Scatter plots
 fastplot scatter data.csv --point-char "●" --color green
 fastplot scatter data.csv --point-char "+" --color "#ff6b35"
+
+# Bar charts (automatically detects categorical vs numeric data)
+fastplot bar test-data/categorical_regions.csv --title "Regional Sales"
+fastplot bar test-data/categorical_quarters.csv --title "Quarterly Sales" --category-order "Q4,Q3,Q2,Q1"
+fastplot bar test-data/numeric_simple.csv --title "Numeric Data"
 ```
 
 ### Mathematical Function Plots
@@ -57,16 +63,29 @@ fastplot line "function:ln(x)" --range="0.1:10" --color purple
 
 ## Sample Data
 
-Create a test CSV file:
+The `test-data/` directory contains sample CSV files for testing:
+
+```bash
+# Categorical data
+fastplot bar test-data/categorical_regions.csv --title "Regional Sales"
+fastplot bar test-data/categorical_quarters.csv --title "Quarterly Data"
+
+# Numeric data  
+fastplot line test-data/sine.csv --title "Sine Wave"
+fastplot line test-data/quadratic.csv --title "Quadratic"
+fastplot bar test-data/numeric_simple.csv --title "Simple Bar Chart"
+```
+
+Or create your own test CSV file:
 ```bash
 echo "x,y
 0,0
 1,1
 2,4
 3,9
-4,16" > quadratic.csv
+4,16" > my_data.csv
 
-fastplot line quadratic.csv --title "Quadratic Data"
+fastplot line my_data.csv --title "My Data"
 ```
 
 ## Example Output
@@ -124,6 +143,13 @@ f(x) = sin(x)
 -p, --point-char <CHAR>   Point character [default: "●"]
 ```
 
+### Bar Chart Options
+```bash
+-b, --bar-char <CHAR>     Bar character [default: "█"]
+-w, --bar-width <NUM>     Bar width in characters [default: 1]
+    --category-order <LIST>  Custom category order as "Q1,Q2,Q3,Q4"
+```
+
 ### Function Plot Options  
 ```bash
     --points <NUM>        Number of evaluation points [default: 200]
@@ -132,6 +158,8 @@ f(x) = sin(x)
 ## CSV Format
 
 CSV files should have two columns with headers:
+
+**Numeric data:**
 ```csv
 x,y
 -2,4
@@ -140,3 +168,14 @@ x,y
 1,1
 2,4
 ```
+
+**Categorical data:**
+```csv
+Category,Sales
+Q1,120
+Q2,85
+Q3,95
+Q4,140
+```
+
+The tool automatically detects whether the x-axis contains categorical (string) or numeric data.

@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use evalexpr::*;
-use crate::data::{DataPoint, Dataset};
+use crate::data::{DataPoint, Dataset, LegacyDataPoint};
 
 /// A mathematical function that can be evaluated and plotted
 pub struct Function {
@@ -22,7 +22,7 @@ impl Function {
             return Err(anyhow!("Number of points must be greater than 0"));
         }
 
-        let mut points = Vec::new();
+        let mut legacy_points = Vec::new();
         let step = if points_count == 1 {
             0.0
         } else {
@@ -33,7 +33,7 @@ impl Function {
             let x = x_min + i as f64 * step;
             match self.evaluate(x) {
                 Ok(y) if y.is_finite() => {
-                    points.push(DataPoint { x, y });
+                    legacy_points.push(LegacyDataPoint { x, y });
                 }
                 _ => {
                     // Skip points where function evaluation fails or returns infinite/NaN
@@ -42,14 +42,21 @@ impl Function {
             }
         }
 
-        if points.is_empty() {
+        if legacy_points.is_empty() {
             return Err(anyhow!("Function evaluation failed for all points in range"));
         }
+
+        // Convert legacy points to new format
+        let points: Vec<DataPoint> = legacy_points.into_iter()
+            .map(|p| DataPoint::Numeric(p.x, p.y))
+            .collect();
 
         Ok(Dataset {
             points,
             x_label: "x".to_string(),
             y_label: format!("f(x) = {}", self.expression),
+            is_categorical: false,
+            categories: Vec::new(),
         })
     }
 

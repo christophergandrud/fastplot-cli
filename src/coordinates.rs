@@ -1,4 +1,5 @@
-use crate::data::DataPoint as OldDataPoint;
+use crate::data::DataPoint as NewDataPoint;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DataPoint {
@@ -6,15 +7,28 @@ pub struct DataPoint {
     pub y: f64,
 }
 
-impl From<OldDataPoint> for DataPoint {
-    fn from(old: OldDataPoint) -> Self {
-        Self { x: old.x, y: old.y }
+impl From<NewDataPoint> for DataPoint {
+    fn from(new: NewDataPoint) -> Self {
+        match new {
+            NewDataPoint::Numeric(x, y) => Self { x, y },
+            NewDataPoint::Categorical(_, y) => {
+                // This conversion loses categorical information
+                // Should only be used for legacy code
+                Self { x: 0.0, y }
+            }
+        }
     }
 }
 
-impl From<DataPoint> for OldDataPoint {
-    fn from(new: DataPoint) -> Self {
-        Self { x: new.x, y: new.y }
+#[derive(Debug, Clone, Copy)]
+pub struct LegacyDataPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl From<LegacyDataPoint> for DataPoint {
+    fn from(legacy: LegacyDataPoint) -> Self {
+        Self { x: legacy.x, y: legacy.y }
     }
 }
 
@@ -151,6 +165,63 @@ impl CoordinateTransformer {
         let width = self.screen_width.saturating_sub(self.margins.left + self.margins.right);
         let height = self.screen_height.saturating_sub(self.margins.top + self.margins.bottom);
         (left, top, width, height)
+    }
+}
+
+pub struct CategoricalTransformer {
+    category_map: HashMap<String, f64>,
+    data_bounds: DataBounds,
+    screen_width: usize,
+    screen_height: usize,
+    margins: Margins,
+}
+
+impl CategoricalTransformer {
+    pub fn new(categories: &[String], data_bounds: DataBounds, width: usize, height: usize, margins: Margins) -> Self {
+        let mut category_map = HashMap::new();
+        
+        // Map categories to evenly spaced positions
+        if !categories.is_empty() {
+            let x_min = data_bounds.min_x;
+            let x_max = data_bounds.max_x;
+            let step = if categories.len() > 1 {
+                (x_max - x_min) / (categories.len() - 1) as f64
+            } else {
+                0.0
+            };
+            
+            for (i, category) in categories.iter().enumerate() {
+                let position = x_min + (i as f64 * step);
+                category_map.insert(category.clone(), position);
+            }
+        }
+        
+        Self {
+            category_map,
+            data_bounds,
+            screen_width: width,
+            screen_height: height,
+            margins,
+        }
+    }
+    
+    pub fn data_to_screen(&self, point: &NewDataPoint) -> Option<ScreenPoint> {
+        let x_pos = match point {
+            NewDataPoint::Numeric(x, _) => *x,
+            NewDataPoint::Categorical(category, _) => {
+                *self.category_map.get(category)?
+            }
+        };
+        
+        let y_pos = point.y();
+        
+        let numeric_point = DataPoint { x: x_pos, y: y_pos };
+        let transformer = CoordinateTransformer::new(self.data_bounds.clone(), self.screen_width, self.screen_height, self.margins);
+        transformer.data_to_screen(numeric_point)
+    }
+    
+    pub fn get_category_position(&self, category: &str) -> Option<f64> {
+        self.category_map.get(category).copied()
     }
 }
 

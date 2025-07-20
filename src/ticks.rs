@@ -114,6 +114,58 @@ impl TickGenerator {
     }
 }
 
+pub struct CategoricalTickGenerator {
+    max_label_width: usize,
+}
+
+impl Default for CategoricalTickGenerator {
+    fn default() -> Self {
+        Self {
+            max_label_width: 12,
+        }
+    }
+}
+
+impl CategoricalTickGenerator {
+    #[allow(dead_code)]
+    pub fn new(max_label_width: usize) -> Self {
+        Self { max_label_width }
+    }
+    
+    pub fn generate_categorical_ticks(&self, categories: &[String], positions: &[f64]) -> Vec<Tick> {
+        categories.iter()
+            .zip(positions.iter())
+            .map(|(category, &position)| Tick {
+                value: position,
+                label: self.smart_truncate(category, self.max_label_width),
+                is_major: true,
+            })
+            .collect()
+    }
+    
+    fn smart_truncate(&self, text: &str, max_len: usize) -> String {
+        if text.len() <= max_len {
+            return text.to_string();
+        }
+        
+        if max_len <= 3 {
+            return text.chars().take(max_len).collect();
+        }
+        
+        // Smart truncation: keep first and last chars with "..." in middle
+        let ellipsis = "...";
+        let available_chars = max_len - ellipsis.len();
+        let first_chars = (available_chars + 1) / 2;
+        let last_chars = available_chars / 2;
+        
+        let first_part: String = text.chars().take(first_chars).collect();
+        let last_part: String = text.chars().rev().take(last_chars).collect::<String>()
+            .chars().rev().collect();
+        
+        format!("{}{}{}", first_part, ellipsis, last_part)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
