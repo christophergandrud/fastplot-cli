@@ -145,6 +145,18 @@ impl LayoutEngine {
     }
 }
 
+/// Format x-axis label with right alignment relative to the plot area
+pub fn format_x_axis_label(x_label: &str, layout: &Layout) -> String {
+    let plot_right = layout.plot_area.left + layout.plot_area.width;
+    let x_label_width = x_label.len();
+    let padding = if plot_right >= x_label_width {
+        " ".repeat(plot_right - x_label_width)
+    } else {
+        String::new()
+    };
+    format!("\n{}{}\n", padding, x_label)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

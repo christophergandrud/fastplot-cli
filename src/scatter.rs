@@ -59,7 +59,7 @@ impl ScatterPlot {
         output.push_str(&self.y_label);
         output.push('\n');
         output.push_str(&canvas.render_with_y_labels(&layout));
-        output.push_str(&format!("\n{}\n", self.x_label));
+        output.push_str(&crate::layout::format_x_axis_label(&self.x_label, &layout));
         
         output
     }

@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use evalexpr::*;
 use crate::data::{DataPoint, Dataset};
 
 /// A mathematical function that can be evaluated and plotted
@@ -54,214 +55,53 @@ impl Function {
 
     /// Evaluate the function at a given x value
     fn evaluate(&self, x: f64) -> Result<f64> {
-        // Replace 'x' with the value, being careful with word boundaries
-        let expr = self.replace_variable(&self.expression, "x", x);
-        self.evaluate_expression(&expr)
+        // Pre-process expression to add simple function aliases
+        let expression = self.add_function_aliases(&self.expression);
+        
+        // Use evalexpr to evaluate the expression with x variable
+        let mut context = HashMapContext::<evalexpr::DefaultNumericTypes>::new();
+        context.set_value("x".into(), Value::Float(x))?;
+        context.set_value("pi".into(), Value::Float(std::f64::consts::PI))?;
+        context.set_value("e".into(), Value::Float(std::f64::consts::E))?;
+        
+        match eval_with_context(&expression, &context) {
+            Ok(value) => {
+                // Try to convert to f64 using the evalexpr API
+                if let Ok(num) = value.as_float() {
+                    Ok(num)
+                } else {
+                    Err(anyhow!("Expression did not evaluate to a number: {:?}", value))
+                }
+            },
+            Err(e) => Err(anyhow!("Failed to evaluate expression: {}", e)),
+        }
     }
 
-    /// Replace variable with value, handling word boundaries properly
-    fn replace_variable(&self, expr: &str, var: &str, value: f64) -> String {
-        let mut result = String::new();
-        let chars: Vec<char> = expr.chars().collect();
-        let mut i = 0;
+    /// Add simple function aliases (sin -> math::sin, etc.)
+    fn add_function_aliases(&self, expr: &str) -> String {
+        let aliases = &[
+            ("sin(", "math::sin("),
+            ("cos(", "math::cos("),
+            ("tan(", "math::tan("),
+            ("exp(", "math::exp("),
+            ("ln(", "math::ln("),
+            ("log(", "math::log10("),
+            ("log10(", "math::log10("),
+            ("log2(", "math::log2("),
+            ("sqrt(", "math::sqrt("),
+            ("abs(", "math::abs("),
+            ("asin(", "math::asin("),
+            ("acos(", "math::acos("),
+            ("atan(", "math::atan("),
+        ];
         
-        while i < chars.len() {
-            if i <= chars.len() - var.len() {
-                let substr: String = chars[i..i + var.len()].iter().collect();
-                if substr == var {
-                    // Check if this is a complete variable (not part of a larger identifier)
-                    let prev_ok = i == 0 || !chars[i - 1].is_alphanumeric();
-                    let next_ok = i + var.len() >= chars.len() || !chars[i + var.len()].is_alphanumeric();
-                    
-                    if prev_ok && next_ok {
-                        // Add parentheses around all numbers to avoid parsing issues
-                        result.push_str(&format!("({})", value));
-                        i += var.len();
-                        continue;
-                    }
-                }
-            }
-            result.push(chars[i]);
-            i += 1;
+        let mut result = expr.to_string();
+        for (alias, full_name) in aliases {
+            result = result.replace(alias, full_name);
         }
-        
         result
     }
 
-    /// Basic expression evaluator supporting common math functions
-    fn evaluate_expression(&self, expr: &str) -> Result<f64> {
-        let expr = expr.replace(" ", "");
-        
-        // Handle parentheses recursively
-        if let Some(result) = self.handle_parentheses(&expr)? {
-            return Ok(result);
-        }
-        
-        // Handle basic operations with precedence
-        if let Some(result) = self.handle_addition_subtraction(&expr)? {
-            return Ok(result);
-        }
-        
-        if let Some(result) = self.handle_multiplication_division(&expr)? {
-            return Ok(result);
-        }
-        
-        if let Some(result) = self.handle_exponentiation(&expr)? {
-            return Ok(result);
-        }
-        
-        // Handle functions
-        if let Some(result) = self.handle_functions(&expr)? {
-            return Ok(result);
-        }
-        
-        // Handle unary minus
-        if expr.starts_with('-') && expr.len() > 1 {
-            let inner = &expr[1..];
-            return Ok(-self.evaluate_expression(inner)?);
-        }
-        
-        // Handle constants and numbers
-        self.parse_number_or_constant(&expr)
-    }
-
-    fn handle_parentheses(&self, expr: &str) -> Result<Option<f64>> {
-        if let Some((start, end)) = find_innermost_parentheses(expr) {
-            let before = &expr[..start];
-            let inside = &expr[start + 1..end];
-            let after = &expr[end + 1..];
-            
-            let inner_result = self.evaluate_expression(inside)?;
-            let new_expr = format!("{}{}{}", before, inner_result, after);
-            return Ok(Some(self.evaluate_expression(&new_expr)?));
-        }
-        Ok(None)
-    }
-
-    fn handle_addition_subtraction(&self, expr: &str) -> Result<Option<f64>> {
-        if let Some((left, op, right)) = find_operator_outside_parens(expr, &['+', '-']) {
-            let left_val = self.evaluate_expression(left)?;
-            let right_val = self.evaluate_expression(right)?;
-            return Ok(Some(match op {
-                '+' => left_val + right_val,
-                '-' => left_val - right_val,
-                _ => unreachable!(),
-            }));
-        }
-        Ok(None)
-    }
-
-    fn handle_multiplication_division(&self, expr: &str) -> Result<Option<f64>> {
-        if let Some((left, op, right)) = find_operator_outside_parens(expr, &['*', '/']) {
-            let left_val = self.evaluate_expression(left)?;
-            let right_val = self.evaluate_expression(right)?;
-            return Ok(Some(match op {
-                '*' => left_val * right_val,
-                '/' => {
-                    if right_val == 0.0 {
-                        f64::INFINITY
-                    } else {
-                        left_val / right_val
-                    }
-                }
-                _ => unreachable!(),
-            }));
-        }
-        Ok(None)
-    }
-
-    fn handle_exponentiation(&self, expr: &str) -> Result<Option<f64>> {
-        if let Some((left, _, right)) = find_operator_outside_parens(expr, &['^']) {
-            let left_val = self.evaluate_expression(left)?;
-            let right_val = self.evaluate_expression(right)?;
-            return Ok(Some(left_val.powf(right_val)));
-        }
-        Ok(None)
-    }
-
-    fn handle_functions(&self, expr: &str) -> Result<Option<f64>> {
-        let functions: &[(&str, fn(f64) -> f64)] = &[
-            ("sin", f64::sin),
-            ("cos", f64::cos),
-            ("tan", f64::tan),
-            ("exp", f64::exp),
-            ("ln", f64::ln),
-            ("log", f64::log10),
-            ("sqrt", f64::sqrt),
-            ("abs", f64::abs),
-        ];
-        
-        for (func_name, func) in functions {
-            if expr.starts_with(func_name) && expr.len() > func_name.len() {
-                let rest = &expr[func_name.len()..];
-                if rest.starts_with('(') && rest.ends_with(')') {
-                    let inner = &rest[1..rest.len() - 1];
-                    let arg = self.evaluate_expression(inner)?;
-                    return Ok(Some(func(arg)));
-                }
-            }
-        }
-        
-        Ok(None)
-    }
-
-    fn parse_number_or_constant(&self, expr: &str) -> Result<f64> {
-        match expr {
-            "pi" | "PI" => Ok(std::f64::consts::PI),
-            "e" | "E" => Ok(std::f64::consts::E),
-            _ => expr.parse::<f64>().map_err(|_| anyhow!("Invalid expression: {}", expr)),
-        }
-    }
-}
-
-/// Find innermost parentheses in an expression
-fn find_innermost_parentheses(expr: &str) -> Option<(usize, usize)> {
-    let mut deepest_start = None;
-    let mut level = 0;
-    let mut max_level = 0;
-    
-    for (i, ch) in expr.char_indices() {
-        match ch {
-            '(' => {
-                level += 1;
-                if level > max_level {
-                    max_level = level;
-                    deepest_start = Some(i);
-                }
-            }
-            ')' => {
-                if level == max_level && deepest_start.is_some() {
-                    return Some((deepest_start.unwrap(), i));
-                }
-                level -= 1;
-            }
-            _ => {}
-        }
-    }
-    
-    None
-}
-
-/// Find operator outside parentheses, searching right to left for correct precedence
-fn find_operator_outside_parens<'a>(expr: &'a str, operators: &[char]) -> Option<(&'a str, char, &'a str)> {
-    let mut level = 0;
-    
-    for (i, ch) in expr.char_indices().rev() {
-        match ch {
-            ')' => level += 1,
-            '(' => level -= 1,
-            _ if level == 0 && operators.contains(&ch) => {
-                let left = &expr[..i];
-                let right = &expr[i + 1..];
-                if !left.is_empty() && !right.is_empty() {
-                    return Some((left, ch, right));
-                }
-            }
-            _ => {}
-        }
-    }
-    
-    None
 }
 
 /// Detect intelligent default range for different function types
