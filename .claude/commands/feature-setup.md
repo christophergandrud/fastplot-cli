@@ -22,6 +22,7 @@ The user will provide a feature description after the command, like: `/feature-s
 
 3. **Generate Implementation Plan**
    - Analyze the codebase to understand the current architecture
+   - Survey open source solutions to implementing similar features
    - Break down the feature into logical implementation steps
    - **Always prioritize simple and modular solutions**
    - Consider dependencies, testing requirements, and documentation needs
