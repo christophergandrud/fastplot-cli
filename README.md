@@ -2,18 +2,27 @@
 
 A fast terminal plotting tool written in Rust for both data files and mathematical functions.
 
+## Prerequisites
+
+- **Rust**: Version 1.70.0 or later ([Install Rust](https://rustup.rs/))
+- **Terminal**: Unicode support recommended for best visual output
+- **Platform**: Works on Linux, macOS, and Windows
+
 ## Quick Start
 
 ```bash
-# Build and install
-cargo build --release
+# Run directly with cargo
+cargo run --release --bin fastplot -- line test-data/sine.csv --title "Sine Wave"
+
+# Plot a mathematical function
+cargo run --release --bin fastplot -- line "function:sin(x)" --title "Sine Wave"
+
+# Optional: Install system-wide for easier access
 cargo install --path .
-
-# Plot a CSV file
-fastplot line data.csv --title "My Data"
-
-# Plot a mathematical function  
-fastplot line "function:sin(x)" --title "Sine Wave"
+# Both fastplot and fplot binaries are installed for convenience
+fastplot line test-data/sine.csv --title "Sine Wave"
+# or use the shorter alias:
+fplot line test-data/sine.csv --title "Sine Wave"
 ```
 
 ## Features
@@ -27,38 +36,80 @@ fastplot line "function:sin(x)" --title "Sine Wave"
 
 ## Examples
 
-### CSV Data Plots
+### Beginner: Basic Plots
+
+**Simple CSV Data Plots**
 ```bash
-# Line plots
-fastplot line data.csv --title "My Line Plot"
+# Basic line plot with default settings
+fastplot line data.csv
+
+# Basic scatter plot
+fastplot scatter data.csv
+
+# Basic bar chart (auto-detects categorical data)
+fastplot bar test-data/categorical_regions.csv
+```
+
+**Simple Function Plots**
+```bash
+# Plot basic mathematical functions
+fastplot line "function:x^2"
+fastplot line "function:sin(x)"
+fastplot scatter "function:sqrt(x)" --range="0:25"
+```
+
+### Intermediate: Styling and Customization
+
+**Custom Styling**
+```bash
+# Add titles and colors
+fastplot line data.csv --title "My Line Plot" --color blue
+fastplot scatter data.csv --point-char "●" --color green
+fastplot bar test-data/categorical_regions.csv --title "Regional Sales" --color red
+
+# Different line styles
 fastplot line data.csv --style smooth --color blue
 fastplot line data.csv --points-only --color red
+```
 
-# Scatter plots
-fastplot scatter data.csv --point-char "●" --color green
+**Custom Ranges and Characters**
+```bash
+# Specify custom ranges for functions
+fastplot line "function:exp(x)" --range="-2:2" --title "Exponential"
+fastplot line "function:ln(x)" --range="0.1:10" --color purple
+
+# Custom point and bar characters
 fastplot scatter data.csv --point-char "+" --color "#ff6b35"
+fastplot bar data.csv --bar-char "▓"
+```
 
-# Bar charts (automatically detects categorical vs numeric data)
-fastplot bar test-data/categorical_regions.csv --title "Regional Sales"
+### Advanced: Complex Functions and Features
+
+**Complex Mathematical Expressions**
+```bash
+# Multi-function expressions
+fastplot line "function:sin(x^2)" --range="-3:3"
+fastplot line "function:exp(-x)*cos(5*x)" --range="0:3"
+fastplot line "function:sin(x) + cos(x*2)" --range="-5:5"
+
+# Combine styling with complex functions
+fastplot line "function:cos(x)" --style smooth --color blue --title "Smooth Cosine"
+```
+
+**Advanced Bar Chart Features**
+```bash
+# Custom category ordering
 fastplot bar test-data/categorical_quarters.csv --title "Quarterly Sales" --category-order "Q4,Q3,Q2,Q1"
+
+# Mixed data types (numeric treated as categorical)
 fastplot bar test-data/numeric_simple.csv --title "Numeric Data"
 ```
 
-### Mathematical Function Plots
+**Hex Colors and Precision Control**
 ```bash
-# Basic functions
-fastplot line "function:x^2" --title "Quadratic"
-fastplot line "function:sin(x)" --title "Sine Wave"
-fastplot line "function:exp(x)" --range="-2:2" --title "Exponential"
-
-# Complex expressions
-fastplot line "function:sin(x^2)" --range="-3:3"
-fastplot line "function:exp(-x)*cos(5*x)" --range="0:3"
-fastplot scatter "function:sqrt(x)" --range="0:25"
-
-# With styling
-fastplot line "function:cos(x)" --style smooth --color blue
-fastplot line "function:ln(x)" --range="0.1:10" --color purple
+# Use hex colors for precise color control
+fastplot scatter data.csv --color "#ff6b35" --title "Custom Orange"
+fastplot line "function:sin(x)" --color "#1e90ff" --points=500
 ```
 
 ## Sample Data
@@ -155,13 +206,66 @@ f(x) = sin(x)
     --points <NUM>        Number of evaluation points [default: 200]
 ```
 
+## Color Reference
+
+All plot types support the `--color` option with the following values:
+
+### Named Colors
+
+**Standard Colors:**
+- `red`, `green`, `blue`, `yellow`
+- `magenta` (also `purple`), `cyan`
+- `white`, `black`
+
+**Bright Colors:**
+- `bright_red`, `bright_green`, `bright_blue`, `bright_yellow`
+- `bright_magenta` (also `bright_purple`), `bright_cyan`
+
+### Hex Colors
+- Use format: `#RRGGBB` (e.g., `#ff6b35`, `#1e90ff`, `#32cd32`)
+- All standard hex color codes are supported
+
+### Examples
+```bash
+# Named colors
+fastplot line data.csv --color red
+fastplot scatter data.csv --color bright_blue
+fastplot bar data.csv --color purple
+
+# Hex colors
+fastplot line data.csv --color "#ff6b35"
+fastplot scatter data.csv --color "#1e90ff"
+fastplot bar data.csv --color "#32cd32"
+```
+
 ## CSV Format
 
-CSV files should have two columns with headers:
+### File Structure
+- **Required**: Two columns (x-axis and y-axis data)
+- **Headers**: Column headers are optional but recommended
+- **Separator**: Use commas (`,`) to separate columns
+- **Data Types**: Automatic detection between numeric and categorical data
 
-**Numeric data:**
+### Data Type Detection
+The tool automatically determines data types:
+- **Numeric**: If the first column contains only numbers, treats as numeric data
+- **Categorical**: If any non-numeric values are found, treats the entire first column as categories
+- **Mixed Data**: If numeric and categorical values are mixed, categorical takes precedence
+
+### Examples
+
+**Numeric data with headers:**
 ```csv
 x,y
+-2,4
+-1,1
+0,0
+1,1
+2,4
+```
+
+**Numeric data without headers:**
+```csv
 -2,4
 -1,1
 0,0
@@ -178,4 +282,45 @@ Q3,95
 Q4,140
 ```
 
-The tool automatically detects whether the x-axis contains categorical (string) or numeric data.
+### Supported Formats
+- **Whitespace**: Spaces around values are automatically trimmed
+- **Numbers**: Integers and floating-point numbers (e.g., `3.14`, `-2.5`, `1e-3`)
+- **Categories**: Text strings, numbers as strings (e.g., "2023", "Group A")
+- **Empty Values**: Rows with empty cells are skipped
+
+## Troubleshooting
+
+### Common Issues
+
+**"Function evaluation failed for all points in range"**
+- Check that your function syntax is correct (e.g., `"function:sin(x)"`)
+- Verify function names match supported functions (see Supported Functions section)
+- Try a different range with `--range="-10:10"`
+
+**"No such file or directory"**
+- Ensure the CSV file path is correct
+- Use absolute paths if having issues with relative paths
+- Check that the file has proper CSV format with comma separators
+
+**Plot appears garbled or uses ASCII characters**
+- Your terminal may not support Unicode properly
+- Try using `--style ascii` for ASCII-only output
+- Ensure your terminal encoding is set to UTF-8
+
+**Colors not displaying correctly**
+- Some terminals have limited color support
+- Try named colors like `--color red` instead of hex codes
+- Check your terminal's color capabilities
+
+**Installation Issues**
+- Ensure Rust 1.70.0+ is installed: `rustc --version`
+- Try `cargo clean` and rebuild if encountering build errors
+- On older systems, you may need to update your Rust toolchain: `rustup update`
+
+### Getting Help
+
+If you encounter other issues:
+1. Check that your input data follows the CSV format examples
+2. Try the examples in this README to verify basic functionality
+3. Use `fastplot --help` or `fplot --help` for command usage
+4. Use `fastplot <command> --help` for specific command options

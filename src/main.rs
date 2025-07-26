@@ -24,6 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Create scatter plots from data files or functions
     Scatter {
         /// Data source: CSV file path or function expression (e.g., "data.csv" or "function:x^2")
         source: String,
@@ -43,6 +44,7 @@ enum Commands {
         #[arg(long, default_value = "200")]
         points: usize,
     },
+    /// Create line plots with various styling options
     Line {
         /// Data source: CSV file path or function expression (e.g., "data.csv" or "function:sin(x)")
         source: String,
@@ -74,6 +76,7 @@ enum Commands {
         #[arg(long, default_value = "200")]
         points: usize,
     },
+    /// Create bar charts for categorical or numeric data
     Bar {
         /// Data source: CSV file path or function expression (e.g., "data.csv" or "function:x^2")
         source: String,
