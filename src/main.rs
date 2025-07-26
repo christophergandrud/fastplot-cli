@@ -10,9 +10,11 @@ mod line_plot;
 mod function;
 mod bar_chart;
 mod color;
+mod plot_config;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
+use plot_config::{PlotConfig, PlotType, PlotCommand};
 
 #[derive(Parser)]
 #[command(name = "fastplot")]
@@ -107,11 +109,19 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     
-    match cli.command {
+    // Convert CLI arguments to unified plot command - this provides the deep module interface
+    let plot_command = match cli.command {
         Commands::Scatter { source, title, point_char, color, range, points } => {
-            let dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
-            let output = scatter::render_scatter_plot(&dataset, &title, point_char, color.as_deref());
-            print!("{}", output);
+            let config = PlotConfig::new(source)
+                .with_title(title)
+                .with_color(color)
+                .with_range(range)
+                .with_points(points);
+            
+            let plot_type = PlotType::scatter()
+                .with_point_char(point_char);
+            
+            PlotCommand::new(config, plot_type)
         }
         Commands::Line { 
             source, 
@@ -125,49 +135,52 @@ fn main() -> Result<()> {
             range,
             points
         } => {
-            let dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
+            let config = PlotConfig::new(source)
+                .with_title(title)
+                .with_color(color)
+                .with_range(range)
+                .with_points(points);
             
             // Create line style based on arguments
-            let mut line_style = match style.as_str() {
+            let line_style = match style.as_str() {
                 "ascii" => line_style::LineStyle::with_ascii(),
                 "smooth" => line_style::LineStyle::with_unicode_smooth(),
                 "dashed" => line_style::LineStyle::with_dashed(),
                 _ => line_style::LineStyle::default(),
             };
             
-            // Override with specific options
-            if points_only {
-                line_style = line_style::LineStyle::points_only();
-            } else if lines_only {
-                line_style = line_style::LineStyle::lines_only();
-            }
+            let plot_type = PlotType::line()
+                .with_line_style(line_style)
+                .with_points_only(points_only)
+                .with_lines_only(lines_only)
+                .with_line_point_char(point_char)
+                .with_line_char(line_char);
             
-            // Override characters if specified
-            if let Some(pc) = point_char {
-                line_style.point_char = pc;
-            }
-            if let Some(lc) = line_char {
-                line_style.line_char = lc;
-            }
-            
-            let output = line_plot::render_line_plot(&dataset, &title, line_style, color.as_deref());
-            print!("{}", output);
+            PlotCommand::new(config, plot_type)
         }
         Commands::Bar { source, title, bar_char, bar_width, color, range, points, category_order } => {
-            let mut dataset = data::parse_data_source(&source, range.as_deref(), Some(points))?;
+            let config = PlotConfig::new(source)
+                .with_title(title)
+                .with_color(color)
+                .with_range(range)
+                .with_points(points);
             
-            // Apply custom category ordering if specified
-            if let Some(order) = category_order {
-                if dataset.is_categorical {
-                    let custom_categories: Vec<String> = order.split(',').map(|s| s.trim().to_string()).collect();
-                    dataset = data::reorder_categories(dataset, custom_categories)?;
-                }
-            }
+            let category_order_vec = category_order.map(|order| {
+                order.split(',').map(|s| s.trim().to_string()).collect()
+            });
             
-            let output = bar_chart::render_bar_chart(&dataset, &title, bar_char, bar_width, color.as_deref());
-            print!("{}", output);
+            let plot_type = PlotType::bar()
+                .with_bar_char(bar_char)
+                .with_bar_width(bar_width)
+                .with_category_order(category_order_vec);
+            
+            PlotCommand::new(config, plot_type)
         }
-    }
+    };
+    
+    // Execute the unified command - single point of execution
+    let output = plot_command.execute()?;
+    print!("{}", output);
     
     Ok(())
 }
