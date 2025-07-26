@@ -1,34 +1,17 @@
-use crate::data::DataPoint as NewDataPoint;
+use crate::data::DataPoint;
 use std::collections::HashMap;
 
+/// Simple coordinate pair for numeric positioning
+/// This is used internally for coordinate transformations after type resolution
 #[derive(Debug, Clone, Copy)]
-pub struct DataPoint {
+pub struct NumericCoordinate {
     pub x: f64,
     pub y: f64,
 }
 
-impl From<NewDataPoint> for DataPoint {
-    fn from(new: NewDataPoint) -> Self {
-        match new {
-            NewDataPoint::Numeric(x, y) => Self { x, y },
-            NewDataPoint::Categorical(_, y) => {
-                // This conversion loses categorical information
-                // Should only be used for legacy code
-                Self { x: 0.0, y }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct LegacyDataPoint {
-    pub x: f64,
-    pub y: f64,
-}
-
-impl From<LegacyDataPoint> for DataPoint {
-    fn from(legacy: LegacyDataPoint) -> Self {
-        Self { x: legacy.x, y: legacy.y }
+impl NumericCoordinate {
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
     }
 }
 
@@ -47,8 +30,10 @@ pub struct DataBounds {
 }
 
 impl DataBounds {
-    pub fn from_points(points: &[DataPoint]) -> Self {
-        if points.is_empty() {
+    /// Create bounds from numeric coordinates only
+    /// Categorical data should use specialized bounds calculation
+    pub fn from_numeric_coordinates(coords: &[NumericCoordinate]) -> Self {
+        if coords.is_empty() {
             return Self {
                 min_x: -10.0,
                 max_x: 10.0,
@@ -57,10 +42,10 @@ impl DataBounds {
             };
         }
 
-        let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-        let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-        let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-        let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+        let min_x = coords.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+        let max_x = coords.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+        let min_y = coords.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+        let max_y = coords.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
 
         let x_range = max_x - min_x;
         let y_range = max_y - min_y;
@@ -73,6 +58,20 @@ impl DataBounds {
             min_y: min_y - y_padding,
             max_y: max_y + y_padding,
         }
+    }
+
+    /// Create bounds from DataPoint enum, filtering to numeric data only
+    /// This preserves type safety by explicitly handling only numeric data
+    pub fn from_numeric_data_points(points: &[DataPoint]) -> Self {
+        let numeric_coords: Vec<NumericCoordinate> = points
+            .iter()
+            .filter_map(|p| match p {
+                DataPoint::Numeric(x, y) => Some(NumericCoordinate::new(*x, *y)),
+                DataPoint::Categorical(_, _) => None, // Skip categorical data
+            })
+            .collect();
+        
+        Self::from_numeric_coordinates(&numeric_coords)
     }
 }
 
@@ -112,7 +111,22 @@ impl CoordinateTransformer {
         }
     }
 
-    pub fn data_to_screen(&self, point: DataPoint) -> Option<ScreenPoint> {
+    /// Convert DataPoint to NumericCoordinate for transformation
+    /// This preserves type information by only working with numeric data
+    pub fn data_point_to_coordinate(&self, point: &DataPoint) -> Option<NumericCoordinate> {
+        match point {
+            DataPoint::Numeric(x, y) => Some(NumericCoordinate::new(*x, *y)),
+            DataPoint::Categorical(_, _) => None, // Categorical data needs special handling
+        }
+    }
+
+    /// Transform DataPoint to ScreenPoint (for numeric data only)
+    pub fn transform_data_point(&self, point: &DataPoint) -> Option<ScreenPoint> {
+        let coord = self.data_point_to_coordinate(point)?;
+        self.data_to_screen(coord)
+    }
+
+    pub fn data_to_screen(&self, point: NumericCoordinate) -> Option<ScreenPoint> {
         let plot_width = self.screen_width.saturating_sub(self.margins.left + self.margins.right);
         let plot_height = self.screen_height.saturating_sub(self.margins.top + self.margins.bottom);
 
@@ -145,17 +159,17 @@ impl CoordinateTransformer {
     }
 
     #[allow(dead_code)]
-    pub fn screen_to_data(&self, point: ScreenPoint) -> DataPoint {
+    pub fn screen_to_data(&self, point: ScreenPoint) -> NumericCoordinate {
         let plot_width = self.screen_width - self.margins.left - self.margins.right;
         let plot_height = self.screen_height - self.margins.top - self.margins.bottom;
 
         let norm_x = (point.col.saturating_sub(self.margins.left)) as f64 / plot_width as f64;
         let norm_y = 1.0 - ((point.row.saturating_sub(self.margins.top)) as f64 / plot_height as f64);
 
-        DataPoint {
-            x: self.data_bounds.min_x + norm_x * (self.data_bounds.max_x - self.data_bounds.min_x),
-            y: self.data_bounds.min_y + norm_y * (self.data_bounds.max_y - self.data_bounds.min_y),
-        }
+        NumericCoordinate::new(
+            self.data_bounds.min_x + norm_x * (self.data_bounds.max_x - self.data_bounds.min_x),
+            self.data_bounds.min_y + norm_y * (self.data_bounds.max_y - self.data_bounds.min_y),
+        )
     }
 
     #[allow(dead_code)]
@@ -205,19 +219,19 @@ impl CategoricalTransformer {
         }
     }
     
-    pub fn data_to_screen(&self, point: &NewDataPoint) -> Option<ScreenPoint> {
+    pub fn data_to_screen(&self, point: &DataPoint) -> Option<ScreenPoint> {
         let x_pos = match point {
-            NewDataPoint::Numeric(x, _) => *x,
-            NewDataPoint::Categorical(category, _) => {
+            DataPoint::Numeric(x, _) => *x,
+            DataPoint::Categorical(category, _) => {
                 *self.category_map.get(category)?
             }
         };
         
         let y_pos = point.y();
         
-        let numeric_point = DataPoint { x: x_pos, y: y_pos };
+        let numeric_coord = NumericCoordinate::new(x_pos, y_pos);
         let transformer = CoordinateTransformer::new(self.data_bounds.clone(), self.screen_width, self.screen_height, self.margins);
-        transformer.data_to_screen(numeric_point)
+        transformer.data_to_screen(numeric_coord)
     }
     
     pub fn get_category_position(&self, category: &str) -> Option<f64> {
@@ -231,13 +245,13 @@ mod tests {
 
     #[test]
     fn test_data_bounds_from_points() {
-        let points = vec![
-            DataPoint { x: 1.0, y: 2.0 },
-            DataPoint { x: 5.0, y: 8.0 },
-            DataPoint { x: 3.0, y: 4.0 },
+        let coords = vec![
+            NumericCoordinate::new(1.0, 2.0),
+            NumericCoordinate::new(5.0, 8.0),
+            NumericCoordinate::new(3.0, 4.0),
         ];
         
-        let bounds = DataBounds::from_points(&points);
+        let bounds = DataBounds::from_numeric_coordinates(&coords);
         
         assert!(bounds.min_x < 1.0);
         assert!(bounds.max_x > 5.0);
@@ -256,8 +270,8 @@ mod tests {
         let margins = Margins::default();
         let transformer = CoordinateTransformer::new(bounds, 80, 24, margins);
         
-        let data_pt = DataPoint { x: 5.0, y: 50.0 };
-        let screen_pt = transformer.data_to_screen(data_pt).unwrap();
+        let data_coord = NumericCoordinate::new(5.0, 50.0);
+        let screen_pt = transformer.data_to_screen(data_coord).unwrap();
         
         assert!(screen_pt.col > margins.left);
         assert!(screen_pt.col < 80 - margins.right);
@@ -276,7 +290,7 @@ mod tests {
         let margins = Margins::default();
         let transformer = CoordinateTransformer::new(bounds, 80, 24, margins);
         
-        let original = DataPoint { x: 7.5, y: 25.0 };
+        let original = NumericCoordinate::new(7.5, 25.0);
         if let Some(screen_pt) = transformer.data_to_screen(original) {
             let recovered = transformer.screen_to_data(screen_pt);
             
@@ -296,10 +310,10 @@ mod tests {
         let margins = Margins::default();
         let transformer = CoordinateTransformer::new(bounds, 80, 24, margins);
         
-        let out_of_bounds = DataPoint { x: 15.0, y: 5.0 };
+        let out_of_bounds = NumericCoordinate::new(15.0, 5.0);
         assert!(transformer.data_to_screen(out_of_bounds).is_none());
         
-        let in_bounds = DataPoint { x: 5.0, y: 5.0 };
+        let in_bounds = NumericCoordinate::new(5.0, 5.0);
         assert!(transformer.data_to_screen(in_bounds).is_some());
     }
 }

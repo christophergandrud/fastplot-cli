@@ -1,9 +1,9 @@
-use crate::coordinates::{DataPoint, DataBounds, CoordinateTransformer};
+use crate::coordinates::{NumericCoordinate, DataBounds, CoordinateTransformer};
 use crate::layout::LayoutEngine;
 use crate::layered_canvas::{LayeredCanvas, RenderPriority};
 use crate::line_style::LineStyle;
 use crate::line_drawing::LineRenderer;
-use crate::data::Dataset;
+use crate::data::{Dataset, DataPoint};
 
 pub struct LinePlot {
     width: usize,
@@ -17,7 +17,7 @@ pub struct LinePlot {
 
 impl LinePlot {
     pub fn new(dataset: &Dataset, title: &str, width: usize, height: usize) -> Self {
-        let data = dataset.points.iter().map(|p| DataPoint::from(p.clone())).collect();
+        let data = dataset.points.clone();
         
         Self {
             width,
@@ -43,7 +43,17 @@ impl LinePlot {
 
         // Sort data by x coordinate for proper line connections
         let mut sorted_data = self.data.clone();
-        sorted_data.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        sorted_data.sort_by(|a, b| {
+            let a_x = match a {
+                DataPoint::Numeric(x, _) => *x,
+                DataPoint::Categorical(_, _) => 0.0, // Categorical not supported in line plots
+            };
+            let b_x = match b {
+                DataPoint::Numeric(x, _) => *x,
+                DataPoint::Categorical(_, _) => 0.0,
+            };
+            a_x.partial_cmp(&b_x).unwrap()
+        });
 
         // Calculate bounds and layout
         let bounds = self.calculate_bounds_with_padding(&sorted_data);
@@ -68,7 +78,7 @@ impl LinePlot {
         // Convert data points to screen coordinates
         let screen_points: Vec<_> = sorted_data
             .iter()
-            .filter_map(|p| transformer.data_to_screen(*p))
+            .filter_map(|p| transformer.transform_data_point(p))
             .collect();
         
         // Draw connecting lines
@@ -129,7 +139,16 @@ impl LinePlot {
     }
 
     fn calculate_bounds_with_padding(&self, data: &[DataPoint]) -> DataBounds {
-        if data.is_empty() {
+        // Convert to numeric coordinates for bounds calculation
+        let numeric_coords: Vec<NumericCoordinate> = data
+            .iter()
+            .filter_map(|p| match p {
+                DataPoint::Numeric(x, y) => Some(NumericCoordinate::new(*x, *y)),
+                DataPoint::Categorical(_, _) => None, // Line plots don't support categorical data
+            })
+            .collect();
+
+        if numeric_coords.is_empty() {
             return DataBounds {
                 min_x: 0.0,
                 max_x: 1.0,
@@ -138,10 +157,10 @@ impl LinePlot {
             };
         }
 
-        let min_x = data.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-        let max_x = data.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-        let min_y = data.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-        let max_y = data.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+        let min_x = numeric_coords.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+        let max_x = numeric_coords.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+        let min_y = numeric_coords.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+        let max_y = numeric_coords.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
         
         let x_range = max_x - min_x;
         let y_range = max_y - min_y;

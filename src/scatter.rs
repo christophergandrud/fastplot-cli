@@ -1,6 +1,6 @@
-use crate::coordinates::{DataPoint, DataBounds, CoordinateTransformer};
+use crate::coordinates::{DataBounds, CoordinateTransformer};
 use crate::layout::LayoutEngine;
-use crate::data::Dataset;
+use crate::data::{Dataset, DataPoint};
 use crate::color;
 
 pub struct ScatterPlot {
@@ -14,7 +14,7 @@ pub struct ScatterPlot {
 
 impl ScatterPlot {
     pub fn new(dataset: &Dataset, title: &str, width: usize, height: usize) -> Self {
-        let data = dataset.points.iter().map(|p| DataPoint::from(p.clone())).collect();
+        let data = dataset.points.clone();
         
         Self {
             width,
@@ -31,7 +31,7 @@ impl ScatterPlot {
             return format!("{}\n\nNo data to plot\n", self.title);
         }
 
-        let bounds = DataBounds::from_points(&self.data);
+        let bounds = DataBounds::from_numeric_data_points(&self.data);
         let layout_engine = LayoutEngine::new(self.width, self.height);
         let layout = layout_engine.calculate_layout(&bounds);
         
@@ -48,7 +48,7 @@ impl ScatterPlot {
         self.draw_ticks_and_labels(&mut canvas, &layout);
         
         for point in &self.data {
-            if let Some(screen_pt) = transformer.data_to_screen(*point) {
+            if let Some(screen_pt) = transformer.transform_data_point(point) {
                 canvas.set_char(screen_pt.col, screen_pt.row, symbol, color);
             }
         }

@@ -2,25 +2,18 @@
 
 A fast terminal plotting tool written in Rust for both data files and mathematical functions.
 
-## Prerequisites
-
-- **Rust**: Version 1.70.0 or later ([Install Rust](https://rustup.rs/))
-- **Terminal**: Unicode support recommended for best visual output
-- **Platform**: Works on Linux, macOS, and Windows
-
 ## Quick Start
 
 ```bash
-# Run directly with cargo
-cargo run --release --bin fastplot -- line test-data/sine.csv --title "Sine Wave"
-
 # Plot a mathematical function
 cargo run --release --bin fastplot -- line "function:sin(x)" --title "Sine Wave"
 
 # Optional: Install system-wide for easier access
 cargo install --path .
+
 # Both fastplot and fplot binaries are installed for convenience
 fastplot line test-data/sine.csv --title "Sine Wave"
+
 # or use the shorter alias:
 fplot line test-data/sine.csv --title "Sine Wave"
 ```
@@ -28,9 +21,9 @@ fplot line test-data/sine.csv --title "Sine Wave"
 ## Features
 
 - **Data Files**: Plot CSV files with scatter, line, and bar plots
-- **Categorical Data**: Bar charts with categorical x-axis labels (auto-detected)
+- **Categorical Data**: Bar charts with categorical x-axis labels
 - **Mathematical Functions**: Plot expressions like `sin(x)`, `x^2`, `exp(-x)*cos(5*x)`
-- **Rich Styling**: Unicode/ASCII styles, custom colors, point characters
+- **Styling**: Unicode/ASCII styles, custom colors, point characters
 - **Smart Ranges**: Automatic scaling or custom ranges (`--range="-5:5"`)
 - **Fast Performance**: Efficient Rust implementation
 

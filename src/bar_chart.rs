@@ -1,4 +1,4 @@
-use crate::coordinates::{DataPoint as CoordDataPoint, DataBounds, CoordinateTransformer, CategoricalTransformer};
+use crate::coordinates::{NumericCoordinate, DataBounds, CoordinateTransformer, CategoricalTransformer};
 use crate::layout::LayoutEngine;
 use crate::layered_canvas::{LayeredCanvas, RenderPriority};
 use crate::data::{Dataset, DataPoint};
@@ -57,10 +57,10 @@ impl BarChart {
     
     fn render_numeric(&self, color: Option<&str>) -> String {
         // Convert to coordinate points for compatibility
-        let coord_points: Vec<CoordDataPoint> = self.data.iter()
+        let coord_points: Vec<NumericCoordinate> = self.data.iter()
             .filter_map(|p| {
                 if let DataPoint::Numeric(x, y) = p {
-                    Some(CoordDataPoint { x: *x, y: *y })
+                    Some(NumericCoordinate::new(*x, *y))
                 } else {
                     None
                 }
@@ -131,7 +131,7 @@ impl BarChart {
         self.format_output(&canvas, &layout)
     }
 
-    fn draw_numeric_bars(&self, canvas: &mut LayeredCanvas, data: &[CoordDataPoint], transformer: &CoordinateTransformer, color: Option<&str>) {
+    fn draw_numeric_bars(&self, canvas: &mut LayeredCanvas, data: &[NumericCoordinate], transformer: &CoordinateTransformer, color: Option<&str>) {
         let bar_layer = canvas.get_layer(RenderPriority::Lines);
         
         // Calculate baseline (usually y=0, but handle cases where all values are positive/negative)
@@ -147,7 +147,7 @@ impl BarChart {
             // Transform the data point to screen coordinates
             if let Some(screen_point) = transformer.data_to_screen(*point) {
                 // Transform baseline to screen coordinates
-                let baseline_point = CoordDataPoint { x: point.x, y: baseline_y };
+                let baseline_point = NumericCoordinate::new(point.x, baseline_y);
                 if let Some(baseline_screen) = transformer.data_to_screen(baseline_point) {
                     
                     // Calculate bar dimensions
@@ -173,7 +173,7 @@ impl BarChart {
         }
     }
 
-    fn calculate_numeric_bounds(&self, data: &[CoordDataPoint]) -> DataBounds {
+    fn calculate_numeric_bounds(&self, data: &[NumericCoordinate]) -> DataBounds {
         if data.is_empty() {
             return DataBounds {
                 min_x: 0.0,
@@ -386,7 +386,7 @@ impl BarChart {
             let axes_layer = canvas.get_layer(RenderPriority::Axes);
             for tick in &ticks {
                 // Convert data position to screen position
-                let coord_point = CoordDataPoint { x: tick.value, y: 0.0 };
+                let coord_point = NumericCoordinate::new(tick.value, 0.0);
                 let coord_transformer = CoordinateTransformer::new(
                     self.calculate_categorical_bounds(),
                     self.width,
@@ -409,7 +409,7 @@ impl BarChart {
             let label_layer = canvas.get_layer(RenderPriority::Labels);
             for tick in &ticks {
                 // Convert data position to screen position
-                let coord_point = CoordDataPoint { x: tick.value, y: 0.0 };
+                let coord_point = NumericCoordinate::new(tick.value, 0.0);
                 let coord_transformer = CoordinateTransformer::new(
                     self.calculate_categorical_bounds(),
                     self.width,

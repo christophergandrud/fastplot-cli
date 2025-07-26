@@ -205,15 +205,6 @@ impl PlotCommand {
         Self { config, plot_type }
     }
 
-    /// Get the plot configuration
-    pub fn config(&self) -> &PlotConfig {
-        &self.config
-    }
-
-    /// Get the plot type
-    pub fn plot_type(&self) -> &PlotType {
-        &self.plot_type
-    }
 
     /// Execute the plot command - single point of execution logic
     /// This method encapsulates all the complexity of different plot types
@@ -340,7 +331,7 @@ mod tests {
         let plot_type = PlotType::scatter();
         let command = PlotCommand::new(config, plot_type);
 
-        assert_eq!(command.config().source, "test.csv");
-        assert_eq!(command.config().title, "Test");
+        assert_eq!(command.config.source, "test.csv");
+        assert_eq!(command.config.title, "Test");
     }
 }

@@ -18,20 +18,6 @@ impl Default for LineStyle {
 }
 
 impl LineStyle {
-    pub fn points_only() -> Self {
-        Self {
-            show_lines: false,
-            ..Default::default()
-        }
-    }
-
-    pub fn lines_only() -> Self {
-        Self {
-            show_points: false,
-            ..Default::default()
-        }
-    }
-
     pub fn with_ascii() -> Self {
         Self {
             point_char: 'o',
