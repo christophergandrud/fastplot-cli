@@ -5,13 +5,13 @@ A fast terminal plotting tool written in Rust for both data files and mathematic
 ## Quick Start
 
 ```bash
-# Plot a mathematical function
+# Plot a mathematical function (no files needed)
 cargo run --release --bin fastplot -- line "function:sin(x)" --title "Sine Wave"
 
 # Optional: Install system-wide for easier access
 cargo install --path .
 
-# Both fastplot and fplot binaries are installed for convenience
+# Plot sample data files (included in repository)
 fastplot line test-data/sine.csv --title "Sine Wave"
 
 # or use the shorter alias:
@@ -120,7 +120,11 @@ fastplot line test-data/quadratic.csv --title "Quadratic"
 fastplot bar test-data/numeric_simple.csv --title "Simple Bar Chart"
 ```
 
-Or create your own test CSV file:
+### Creating Your Own Test Data
+
+If the test-data files are missing, you can create sample data:
+
+**Simple quadratic data:**
 ```bash
 echo "x,y
 0,0
@@ -130,6 +134,17 @@ echo "x,y
 4,16" > my_data.csv
 
 fastplot line my_data.csv --title "My Data"
+```
+
+**Categorical sales data:**
+```bash
+echo "Region,Sales
+North,120
+South,85
+East,95
+West,140" > sales.csv
+
+fastplot bar sales.csv --title "Regional Sales"
 ```
 
 ## Example Output
@@ -292,8 +307,9 @@ Q4,140
 
 **"No such file or directory"**
 - Ensure the CSV file path is correct
-- Use absolute paths if having issues with relative paths
+- Use absolute paths if having issues with relative paths  
 - Check that the file has proper CSV format with comma separators
+- If test-data files are missing, see the "Creating Your Own Test Data" section above
 
 **Plot appears garbled or uses ASCII characters**
 - Your terminal may not support Unicode properly
